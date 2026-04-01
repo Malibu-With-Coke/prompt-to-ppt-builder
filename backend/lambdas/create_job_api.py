@@ -12,6 +12,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.append(str(BACKEND_ROOT))
 
 from shared.db import init_job, update_job_status  # noqa: E402
+from shared.demo_assets import prepare_demo_job_assets  # noqa: E402
 from shared.response import build_error, build_response, get_header, is_options_request, parse_json_body  # noqa: E402
 
 
@@ -42,6 +43,21 @@ def handler(event, context):
     template_s3_key = body.get("templateS3Key")
     content_s3_key = body.get("contentS3Key")
     options = body.get("options") or {}
+    demo_preset = body.get("demoPreset")
+
+    if not job_id:
+        return build_error(400, "Missing required fields.", {"fields": ["jobId"]})
+
+    demo_assets = None
+    if demo_preset:
+        try:
+            demo_assets = prepare_demo_job_assets(job_id=job_id, preset=demo_preset)
+            template_s3_key = demo_assets["templateS3Key"]
+            content_s3_key = demo_assets["contentS3Key"]
+        except ValueError as error:
+            return build_error(400, str(error))
+        except Exception as error:
+            return build_error(500, "Failed to prepare demo assets.", {"reason": str(error)})
 
     missing_fields = [
         field_name
@@ -63,19 +79,30 @@ def handler(event, context):
             content_s3_key=content_s3_key,
             options=options,
         )
-        stepfunctions.start_execution(
-            stateMachineArn=_state_machine_arn(),
-            name=job_id,
-            input=json.dumps(
-                {
-                    "jobId": job_id,
-                    "templateS3Key": template_s3_key,
-                    "contentS3Key": content_s3_key,
-                    "options": options,
-                    "sessionToken": session_token,
-                }
-            ),
-        )
+        if demo_assets:
+            update_job_status(
+                job_id,
+                "SUCCEEDED",
+                result_s3_key=demo_assets["resultS3Key"],
+                extra_updates={
+                    "pipelineStage": demo_assets["pipelineStage"],
+                    "demoPreset": demo_preset,
+                },
+            )
+        else:
+            stepfunctions.start_execution(
+                stateMachineArn=_state_machine_arn(),
+                name=job_id,
+                input=json.dumps(
+                    {
+                        "jobId": job_id,
+                        "templateS3Key": template_s3_key,
+                        "contentS3Key": content_s3_key,
+                        "options": options,
+                        "sessionToken": session_token,
+                    }
+                ),
+            )
     except ClientError as error:
         error_code = error.response.get("Error", {}).get("Code")
         if error_code == "ConditionalCheckFailedException":
@@ -97,7 +124,8 @@ def handler(event, context):
         202,
         {
             "jobId": item["jobId"],
-            "status": item["status"],
+            "status": "SUCCEEDED" if demo_assets else item["status"],
             "createdAt": item["createdAt"],
+            "demoPreset": demo_preset,
         },
     )

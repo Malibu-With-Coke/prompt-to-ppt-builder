@@ -172,6 +172,7 @@ class InfraStack(Stack):
             environment=common_env,
         )
         self.table.grant_read_write_data(create_job_lambda)
+        self.bucket.grant_read_write(create_job_lambda)
         state_machine.grant_start_execution(create_job_lambda)
 
         get_job_lambda = _lambda.Function(

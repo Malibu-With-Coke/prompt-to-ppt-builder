@@ -56,3 +56,17 @@ def generate_download_url(bucket: str, key: str, expiration: int = 3600) -> str:
         Params={"Bucket": bucket, "Key": key},
         ExpiresIn=expiration,
     )
+
+
+def put_object_bytes(
+    bucket: str,
+    key: str,
+    body: bytes,
+    content_type: str,
+) -> None:
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=body,
+        ContentType=content_type,
+    )

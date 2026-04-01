@@ -155,6 +155,57 @@ class WalkingSkeletonTests(unittest.TestCase):
         self.assertEqual(get_payload['status'], 'SUCCEEDED')
         self.assertEqual(get_payload['resultUrl'], 'https://signed-download.example/output')
 
+    def test_demo_job_fast_path_returns_succeeded_without_worker_execution(self):
+        create_job_api = import_fresh('lambdas.create_job_api')
+
+        create_event = {
+            'httpMethod': 'POST',
+            'headers': {'X-Session-Token': 'session-demo'},
+            'body': json.dumps(
+                {
+                    'jobId': 'job-demo-123',
+                    'demoPreset': 'excel',
+                    'options': {
+                        'tone': 'Executive',
+                        'target': 'Management',
+                        'length': 8,
+                        'aiEngine': 'bedrock',
+                    },
+                }
+            ),
+        }
+
+        prepared_assets = {
+            'templateS3Key': 'uploads/job-demo-123/template.pptx',
+            'contentS3Key': 'uploads/job-demo-123/content.xlsx',
+            'resultS3Key': 'results/job-demo-123/output.pptx',
+            'pipelineStage': 'DEMO_RESULT_READY',
+        }
+        created_job = {
+            'jobId': 'job-demo-123',
+            'status': 'PENDING',
+            'createdAt': '2026-04-01T00:00:00Z',
+        }
+
+        with mock.patch.object(create_job_api, 'prepare_demo_job_assets', return_value=prepared_assets), mock.patch.object(
+            create_job_api, 'init_job', return_value=created_job
+        ) as init_job_mock, mock.patch.object(create_job_api, 'update_job_status') as update_status_mock:
+            create_job_api.stepfunctions = mock.Mock()
+            create_response = create_job_api.handler(create_event, None)
+
+        self.assertEqual(create_response['statusCode'], 202)
+        create_payload = json.loads(create_response['body'])
+        self.assertEqual(create_payload['status'], 'SUCCEEDED')
+        self.assertEqual(create_payload['demoPreset'], 'excel')
+        init_job_mock.assert_called_once()
+        update_status_mock.assert_called_once_with(
+            'job-demo-123',
+            'SUCCEEDED',
+            result_s3_key='results/job-demo-123/output.pptx',
+            extra_updates={'pipelineStage': 'DEMO_RESULT_READY', 'demoPreset': 'excel'},
+        )
+        create_job_api.stepfunctions.start_execution.assert_not_called()
+
     def test_worker_bootstrap_walking_skeleton(self):
         document_parser_module = import_fresh('pipeline.agents.document_parser')
         orchestrator_module = import_fresh('pipeline.orchestrator')
