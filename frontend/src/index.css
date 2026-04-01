@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: theme('colors.surface');
+    color: theme('colors.on-surface');
+  }
+}
+
+@layer utilities {
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  
+  .btn-gradient {
+    background: linear-gradient(135deg, theme('colors.primary') 0%, theme('colors.primary-container') 100%);
+  }
+  
+  .premium-gradient {
+    background: linear-gradient(135deg, theme('colors.primary') 0%, theme('colors.primary-container') 100%);
+  }
+
+  .bg-mesh {
+    background-color: theme('colors.background');
+    background-image: radial-gradient(at 0% 0%, theme('colors.primary-fixed') 0px, transparent 50%), radial-gradient(at 100% 100%, theme('colors.surface-container-low') 0px, transparent 50%);
+  }
+}

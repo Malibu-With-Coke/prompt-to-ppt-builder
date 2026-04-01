@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ArchitectEditor - Project History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #faf9fc;
+        }
+        .font-headline {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed-variant": "#2f486a",
+                        "surface-container": "#efedf0",
+                        "tertiary-container": "#391303",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#afc8f0",
+                        "inverse-primary": "#afc8f0",
+                        "on-surface-variant": "#43474e",
+                        "on-tertiary-fixed-variant": "#6b3a25",
+                        "surface-container-low": "#f4f3f6",
+                        "secondary": "#565f6e",
+                        "outline-variant": "#c4c6cf",
+                        "outline": "#74777f",
+                        "error": "#ba1a1a",
+                        "surface": "#faf9fc",
+                        "on-secondary-container": "#5a6372",
+                        "on-secondary-fixed": "#131c29",
+                        "surface-variant": "#e3e2e5",
+                        "surface-container-lowest": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e3e2e5",
+                        "inverse-on-surface": "#f2f0f3",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#476083",
+                        "on-background": "#1a1c1e",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-container": "#b5785f",
+                        "surface-dim": "#dbd9dd",
+                        "on-error": "#ffffff",
+                        "background": "#faf9fc",
+                        "secondary-fixed-dim": "#bec7d9",
+                        "primary-container": "#001f3f",
+                        "on-primary-container": "#6f88ad",
+                        "tertiary": "#110200",
+                        "surface-container-high": "#e9e7eb",
+                        "tertiary-fixed-dim": "#fdb69a",
+                        "secondary-container": "#d7e0f2",
+                        "on-primary-fixed": "#001c3a",
+                        "inverse-surface": "#2f3033",
+                        "primary": "#000613",
+                        "on-secondary-fixed-variant": "#3e4756",
+                        "primary-fixed": "#d4e3ff",
+                        "surface-bright": "#faf9fc",
+                        "tertiary-fixed": "#ffdbce",
+                        "on-surface": "#1a1c1e",
+                        "on-tertiary-fixed": "#351002",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#dae3f5"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface">
+<nav class="fixed left-0 top-0 h-full flex flex-col p-6 bg-[#f4f3f6] dark:bg-[#000613] h-screen w-64 border-r-0 font-inter text-xs font-semibold uppercase tracking-widest text-[#001F3F] dark:text-white">
+<div class="flex items-center gap-3 mb-10">
+<div class="w-10 h-10 bg-primary-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">architecture</span>
+</div>
+<div>
+<h1 class="font-manrope font-black text-xl text-[#001F3F] dark:text-white normal-case tracking-normal">Architect</h1>
+<p class="text-[10px] opacity-60 tracking-widest uppercase">Enterprise SaaS</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-4 px-4 py-3 bg-[#d4e3ff] dark:bg-[#001F3F] text-[#000613] dark:text-white border-l-4 border-[#001F3F] dark:border-blue-400 hover:translate-x-1 transition-transform cubic-bezier(0.4, 0, 0.2, 1) duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="folder">folder</span>
+<span>Projects</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform cubic-bezier(0.4, 0, 0.2, 1) duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard_customize">dashboard_customize</span>
+<span>Templates</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform cubic-bezier(0.4, 0, 0.2, 1) duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="book_2">book_2</span>
+<span>Library</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800/50 hover:translate-x-1 transition-transform cubic-bezier(0.4, 0, 0.2, 1) duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="archive">archive</span>
+<span>Archive</span>
+</a>
+</div>
+<button class="mb-8 w-full py-4 bg-primary text-white font-manrope font-bold text-sm tracking-normal normal-case rounded-md flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+            Generate PPT
+        </button>
+<div class="flex flex-col gap-2 pt-6 border-t border-outline-variant/20">
+<a class="flex items-center gap-4 px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</nav>
+<main class="ml-64 min-h-screen">
+<header class="bg-slate-50 dark:bg-[#000613] flex justify-between items-center w-full px-8 py-4 max-w-[1920px] mx-auto text-[#001F3F] dark:text-white font-manrope text-sm font-medium tracking-tight">
+<div class="flex items-center gap-8">
+<h2 class="text-2xl font-bold tracking-tighter text-[#001F3F] dark:text-white">ArchitectEditor</h2>
+<div class="flex gap-6">
+<a class="text-[#001F3F] dark:text-white font-bold border-b-2 border-[#001F3F] dark:border-white pb-1" href="#">Projects</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-[#001F3F] dark:hover:text-white duration-200 ease-in-out transition-colors" href="#">Templates</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-[#001F3F] dark:hover:text-white duration-200 ease-in-out transition-colors" href="#">Library</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-[#001F3F] dark:hover:text-white duration-200 ease-in-out transition-colors" href="#">Archive</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#001F3F]/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#001F3F]/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden ml-2 ring-2 ring-primary-fixed">
+<img alt="User profile" data-alt="Close-up professional portrait of a tech executive in a modern office with soft natural lighting and minimalist background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBL0NJCJtDVPS3vj6NoW9Qr8PbahghEmNY8NsYVyHkogM1vmSokNOMzPzUYS7B34-Hv1XSBGy-tZnIT3nVM8UFByc8t2GIzq3sBV2frLVxuF-YRVWTyQx_fkTLuUymaYqtytV30W9AY4QckUAFwQtc2-IkqPhY3UvydIkbmHE99ifriXOek9kcSXKhbUIm9KU_hLysYutwumFIeedgq047MkCT43EIwzXywu_AW9bXCj4Jm1LqBFJjYOXKmukRKb4mv_UEgHj5WEqM"/>
+</div>
+</div>
+</header>
+<div class="p-12 max-w-7xl mx-auto">
+<div class="mb-10 flex justify-between items-end">
+<div>
+<h3 class="text-4xl font-headline font-extrabold tracking-tight text-primary mb-2">Generation History</h3>
+<p class="text-secondary font-body">Track and manage your automated presentation workflows.</p>
+</div>
+<div class="flex gap-3">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="pl-10 pr-4 py-2.5 bg-surface-container-low rounded-lg border-none focus:ring-2 focus:ring-primary-fixed-dim text-sm w-64 placeholder:text-outline" placeholder="Search Jobs..." type="text"/>
+</div>
+<button class="px-4 py-2.5 bg-surface-container-high rounded-lg flex items-center gap-2 text-sm font-semibold hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                        Filter
+                    </button>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant/10">
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-secondary">Job ID</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-secondary">Status</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-secondary">Created At</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-widest text-secondary text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm font-semibold text-primary">#ST-98234</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                    RUNNING
+                                </span>
+</td>
+<td class="px-6 py-5 text-sm text-secondary">Oct 24, 2024</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors" title="View Progress">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm font-semibold text-primary">#ST-98231</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-100">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                    SUCCEEDED
+                                </span>
+</td>
+<td class="px-6 py-5 text-sm text-secondary">Oct 23, 2024</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-primary-container transition-colors" title="Download PPT">
+<span class="material-symbols-outlined" data-icon="download">download</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm font-semibold text-primary">#ST-98229</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-100">
+<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                                    FAILED
+                                </span>
+</td>
+<td class="px-6 py-5 text-sm text-secondary">Oct 22, 2024</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors" title="View Error">
+<span class="material-symbols-outlined" data-icon="error_outline">error_outline</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors" title="Retry">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-mono text-sm font-semibold text-primary">#ST-98225</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                    PENDING
+                                </span>
+</td>
+<td class="px-6 py-5 text-sm text-secondary">Oct 21, 2024</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-lg text-secondary transition-colors">
+<span class="material-symbols-outlined" data-icon="cancel">cancel</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Empty State Concept (Hidden for now as there is data, but prepared as per prompt requirements) -->
+<div class="hidden flex flex-col items-center justify-center py-32 bg-surface-container-low rounded-2xl border-2 border-dashed border-outline-variant/30 mt-8">
+<div class="w-20 h-20 bg-surface-container-highest rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-4xl text-outline-variant">history</span>
+</div>
+<h4 class="text-xl font-headline font-bold text-primary mb-2">No PPT generations yet.</h4>
+<p class="text-secondary mb-8">Create your first one now!</p>
+<button class="px-8 py-3 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-md shadow-lg shadow-primary/20 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                    Generate New Presentation
+                </button>
+</div>
+<div class="mt-8 flex items-center justify-between text-sm text-secondary">
+<div>Showing 4 of 48 generation jobs</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-highest text-primary font-bold">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="add">add</span>
+</button>
+</div>
+</body></html>

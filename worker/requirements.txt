@@ -1,0 +1,7 @@
+# Worker dependencies
+python-pptx
+python-docx
+openpyxl
+matplotlib
+boto3
+openai

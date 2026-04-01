@@ -1,0 +1,47 @@
+# === Node / Frontend ===
+node_modules/
+dist/
+.vite/
+*.local
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.eggs/
+
+# === Environment ===
+.env
+.env.local
+.env.*.local
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === AWS / Infra ===
+.terraform/
+*.tfstate
+*.tfstate.backup
+cdk.out/
+
+# === Docker ===
+.docker/
+
+# === Build artifacts ===
+*.zip
+gcm-diagnose.log
+tmp-upload.json
+infra/cdk-outputs.json
+infra/.git.backup/
