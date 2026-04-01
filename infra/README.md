@@ -1,6 +1,6 @@
 ﻿# Infra Deployment Guide
 
-This CDK app provisions the MVP E2E stack for Prompt-to-PPT.
+This CDK app provisions the backend MVP E2E stack for Prompt-to-PPT.
 
 ## What It Creates
 - S3 bucket for uploads, temp artifacts, and results
@@ -9,6 +9,8 @@ This CDK app provisions the MVP E2E stack for Prompt-to-PPT.
 - Step Functions state machine that runs the worker with `.sync`
 - Lambda APIs for upload URL, create job, get job, and list jobs
 - API Gateway REST API
+
+Frontend hosting is handled separately by AWS Amplify Hosting.
 
 ## Defaults
 - Region default: `ap-northeast-2`
@@ -46,7 +48,7 @@ After deploy, collect these CloudFormation outputs:
 - `StateMachineArn`
 - `ClusterName`
 
-Use `ApiBaseUrl` as the frontend `VITE_API_BASE_URL` value.
+Use `ApiBaseUrl` as the frontend `VITE_API_BASE_URL` value in Amplify.
 
 ## Post-Deploy Validation
 1. Call `POST /jobs/upload-url` for template and content.

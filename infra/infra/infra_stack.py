@@ -6,8 +6,6 @@ from aws_cdk import (
     RemovalPolicy,
     Stack,
     aws_apigateway as apigw,
-    aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins,
     aws_dynamodb as dynamodb,
     aws_ec2 as ec2,
     aws_ecs as ecs,
@@ -15,7 +13,6 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_s3 as s3,
     aws_s3_assets as s3assets,
-    aws_s3_deployment as s3deploy,
     aws_secretsmanager as secretsmanager,
     aws_stepfunctions as sfn,
     aws_stepfunctions_tasks as tasks,
@@ -218,53 +215,8 @@ class InfraStack(Stack):
         upload_url_api = jobs_api.add_resource('upload-url')
         upload_url_api.add_method('POST', apigw.LambdaIntegration(upload_url_lambda))
 
-        frontend_bucket = s3.Bucket(
-            self,
-            'PromptToPPTFrontendBucket',
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            encryption=s3.BucketEncryption.S3_MANAGED,
-            enforce_ssl=True,
-            removal_policy=RemovalPolicy.DESTROY,
-            auto_delete_objects=True,
-        )
-
-        frontend_distribution = cloudfront.Distribution(
-            self,
-            'PromptToPPTFrontendDistribution',
-            default_root_object='index.html',
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3BucketOrigin.with_origin_access_control(frontend_bucket)
-            ),
-            error_responses=[
-                cloudfront.ErrorResponse(
-                    http_status=403,
-                    response_http_status=200,
-                    response_page_path='/index.html',
-                    ttl=Duration.minutes(1),
-                ),
-                cloudfront.ErrorResponse(
-                    http_status=404,
-                    response_http_status=200,
-                    response_page_path='/index.html',
-                    ttl=Duration.minutes(1),
-                ),
-            ],
-        )
-
-        frontend_dist_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'dist'))
-        if os.path.isdir(frontend_dist_path):
-            s3deploy.BucketDeployment(
-                self,
-                'PromptToPPTFrontendDeployment',
-                destination_bucket=frontend_bucket,
-                sources=[s3deploy.Source.asset(frontend_dist_path)],
-                distribution=frontend_distribution,
-                distribution_paths=['/*'],
-            )
-
         CfnOutput(self, 'ApiBaseUrl', value=api.url)
         CfnOutput(self, 'BucketName', value=self.bucket.bucket_name)
         CfnOutput(self, 'JobsTableName', value=self.table.table_name)
         CfnOutput(self, 'StateMachineArn', value=state_machine.state_machine_arn)
         CfnOutput(self, 'ClusterName', value=cluster.cluster_name)
-        CfnOutput(self, 'FrontendUrl', value=f'https://{frontend_distribution.domain_name}')
