@@ -11,7 +11,7 @@ class BedrockClient(BaseLLMClient):
     provider_name = 'bedrock'
 
     def __init__(self, model_id: str | None = None, runtime_client: Any | None = None):
-        self.model_id = model_id or os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+        self.model_id = model_id or os.environ.get('BEDROCK_MODEL_ID', 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0')
         self.runtime_client = runtime_client or boto3.client('bedrock-runtime')
 
     def build_json_request(
