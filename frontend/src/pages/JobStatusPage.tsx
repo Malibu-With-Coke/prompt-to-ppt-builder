@@ -14,6 +14,13 @@ const PIPELINE_STAGE_LABELS: Record<string, string> = {
   DOCUMENT_PARSING: 'Parsing your uploaded template and source document.',
   OUTLINE_PROMPT_GENERATION: 'Generating the outline prompt for the deck structure.',
   OUTLINE_PROMPT_READY: 'Outline prompt is ready and waiting for downstream slide generation.',
+  SLIDE_DRAFTING: 'Drafting slide titles, bullets, tables, and chart candidates.',
+  REVIEWING: 'Reviewing the generated slide draft for missing or oversized content.',
+  CHART_RENDERING: 'Rendering chart images from chart-friendly spreadsheet data.',
+  PPT_BUILDING: 'Building the PowerPoint file from the uploaded template.',
+  RESULT_UPLOADING: 'Uploading the completed presentation.',
+  RESULT_READY: 'Your presentation is ready for download.',
+  DEMO_RESULT_READY: 'Your demo presentation is ready for download.',
 };
 
 const extractErrorMessage = (error: unknown) => {

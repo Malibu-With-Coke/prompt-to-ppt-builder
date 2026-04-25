@@ -2,6 +2,7 @@ import importlib
 import json
 import os
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -242,6 +243,10 @@ class WalkingSkeletonTests(unittest.TestCase):
             'userPrompt': 'user',
             'responseSchema': {'type': 'object'},
         }
+        slide_draft = {'slides': [{'index': 1, 'title': 'Q1 Review', 'type': 'text', 'bullets': ['Revenue improved.']}]}
+        reviewed_slides = {'slides': [{'index': 1, 'title': 'Q1 Review', 'type': 'text', 'bullets': ['Revenue improved.']}]}
+        rendered_charts = {'charts': []}
+        upload_result = {'resultS3Key': 'results/job-456/output.pptx', 'pipelineStage': 'RESULT_READY'}
 
         with mock.patch.object(orchestrator_module, 'get_job', return_value=job_record), mock.patch.object(
             orchestrator_module, 'update_job_status'
@@ -255,22 +260,108 @@ class WalkingSkeletonTests(unittest.TestCase):
             return_value=outline_prompt,
         ) as outline_mock, mock.patch.object(
             orchestrator_module, 'put_json_document'
-        ) as put_json_mock:
+        ) as put_json_mock, mock.patch.object(
+            orchestrator_module.SlideWriter,
+            'build_slide_draft',
+            return_value=slide_draft,
+        ) as slide_writer_mock, mock.patch.object(
+            orchestrator_module.ReviewAgent,
+            'review',
+            return_value=reviewed_slides,
+        ) as review_mock, mock.patch.object(
+            orchestrator_module.ChartRenderer,
+            'render',
+            return_value=rendered_charts,
+        ) as chart_mock, mock.patch.object(
+            orchestrator_module.PPTBuilder,
+            'build',
+            return_value='/tmp/job-456-output.pptx',
+        ) as ppt_builder_mock, mock.patch.object(
+            orchestrator_module.ResultUploader,
+            'upload',
+            return_value=upload_result,
+        ) as uploader_mock:
             result = orchestrator_module.run_pipeline('job-456')
 
         self.assertEqual(result['parsedDocument'], parsed_document)
         self.assertEqual(result['outlinePrompt'], outline_prompt)
+        self.assertEqual(result['uploadResult'], upload_result)
         parse_mock.assert_called_once_with(job_record)
         outline_mock.assert_called_once_with(parsed_document)
-        self.assertEqual(put_json_mock.call_count, 2)
+        slide_writer_mock.assert_called_once_with(parsed_document, outline_prompt)
+        review_mock.assert_called_once_with(slide_draft)
+        chart_mock.assert_called_once_with('job-456', reviewed_slides)
+        ppt_builder_mock.assert_called_once_with(job_record, reviewed_slides, rendered_charts)
+        uploader_mock.assert_called_once_with('job-456', '/tmp/job-456-output.pptx')
+        self.assertEqual(put_json_mock.call_count, 4)
         put_paths = [call.args[0] for call in put_json_mock.call_args_list]
         self.assertEqual(
             put_paths,
-            ['temp/job-456/parsed_document.json', 'temp/job-456/outline_request.json'],
+            [
+                'temp/job-456/parsed_document.json',
+                'temp/job-456/outline_request.json',
+                'temp/job-456/slide_draft.json',
+                'temp/job-456/reviewed_slides.json',
+            ],
         )
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'DOCUMENT_PARSING'})
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'OUTLINE_PROMPT_GENERATION'})
-        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'OUTLINE_PROMPT_READY'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'SLIDE_DRAFTING'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'REVIEWING'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'CHART_RENDERING'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'PPT_BUILDING'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'RESULT_UPLOADING'})
+
+    def test_worker_agents_create_chart_and_ppt_artifacts(self):
+        slide_writer_module = import_fresh('pipeline.agents.slide_writer')
+        review_agent_module = import_fresh('pipeline.agents.review_agent')
+        chart_renderer_module = import_fresh('pipeline.agents.chart_renderer')
+        ppt_builder_module = import_fresh('pipeline.agents.ppt_builder')
+
+        parsed_document = {
+            'jobId': 'job-xlsx',
+            'templateRules': {'layouts': [{'name': 'Title and Content'}], 'maxBullets': 4},
+            'contentSummary': {
+                'title': 'Sales Workbook',
+                'documentType': 'xlsx',
+                'sections': [
+                    {
+                        'title': 'Revenue',
+                        'summary': 'Revenue by segment.',
+                        'dataType': 'chart',
+                        'columns': ['Segment', 'Revenue'],
+                        'sampleRows': [['A', 10], ['B', 15], ['C', 12]],
+                        'numericColumns': ['Revenue'],
+                    }
+                ],
+            },
+            'userOptions': {'length': 3, 'tone': 'Executive', 'target': 'Management'},
+        }
+
+        slide_draft = slide_writer_module.SlideWriter().build_slide_draft(parsed_document)
+        reviewed_slides = review_agent_module.ReviewAgent().review(slide_draft)
+
+        with mock.patch.object(chart_renderer_module, 'put_file') as put_file_mock:
+            rendered_charts = chart_renderer_module.ChartRenderer().render('job-xlsx', reviewed_slides)
+
+        self.assertEqual(len(rendered_charts['charts']), 1)
+        self.assertTrue(Path(rendered_charts['charts'][0]['localPath']).exists())
+        put_file_mock.assert_called_once()
+
+        from pptx import Presentation
+
+        template_path = Path(tempfile.gettempdir()) / 'unit-template.pptx'
+        Presentation().save(template_path)
+
+        job_record = {
+            'jobId': 'job-xlsx',
+            'templateS3Key': 'uploads/job-xlsx/template.pptx',
+        }
+        with mock.patch.object(ppt_builder_module, 'get_object_bytes', return_value=template_path.read_bytes()):
+            output_path = ppt_builder_module.PPTBuilder().build(job_record, reviewed_slides, rendered_charts)
+
+        self.assertTrue(Path(output_path).exists())
+        self.assertGreater(Path(output_path).stat().st_size, 0)
 
 
 if __name__ == '__main__':
