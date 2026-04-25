@@ -16,6 +16,17 @@ class SlideWriter:
         user_options = parsed_document.get('userOptions', {})
         sections = list(content.get('sections') or [])
         target_length = self._target_length(user_options.get('length'), sections)
+        llm_outline = (outline_prompt or {}).get('llmOutline') or {}
+        llm_slides = self._normalize_llm_slides(llm_outline.get('slides') or [], sections)
+        if llm_slides:
+            return {
+                'jobId': parsed_document.get('jobId'),
+                'slides': llm_slides[:target_length],
+                'sourceDocumentType': content.get('documentType', 'unknown'),
+                'outlinePromptProvider': (outline_prompt or {}).get('provider'),
+                'outlineSource': 'llm',
+            }
+
         slides: list[dict[str, Any]] = []
 
         slides.append(
@@ -41,7 +52,50 @@ class SlideWriter:
             'slides': slides[:target_length],
             'sourceDocumentType': content.get('documentType', 'unknown'),
             'outlinePromptProvider': (outline_prompt or {}).get('provider'),
+            'outlineSource': 'deterministic',
         }
+
+    def _normalize_llm_slides(self, llm_slides: list[dict[str, Any]], sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        section_by_title = {str(section.get('title', '')).lower(): section for section in sections}
+        normalized: list[dict[str, Any]] = []
+        for index, slide in enumerate(llm_slides, start=1):
+            title = str(slide.get('title') or f'Slide {index}')
+            slide_type = slide.get('type') if slide.get('type') in VALID_SLIDE_TYPES else 'text'
+            source_sections = [str(item) for item in slide.get('sourceSections') or [] if str(item).strip()]
+            matched_section = self._match_section(source_sections, section_by_title)
+            normalized_slide = {
+                'index': index,
+                'title': title,
+                'type': slide_type,
+                'purpose': str(slide.get('purpose') or f'Present {title}.'),
+                'bullets': self._section_bullets(matched_section or {}),
+                'sourceSections': source_sections,
+            }
+            if slide_type == 'table' and matched_section:
+                normalized_slide['table'] = {
+                    'columns': matched_section.get('columns') or [],
+                    'rows': matched_section.get('sampleRows') or matched_section.get('tablePreview') or [],
+                }
+            if slide_type == 'chart' and matched_section:
+                normalized_slide['chart'] = {
+                    'columns': matched_section.get('columns') or [],
+                    'rows': matched_section.get('sampleRows') or [],
+                    'numericColumns': matched_section.get('numericColumns') or [],
+                }
+            normalized.append(normalized_slide)
+        return normalized
+
+    def _match_section(self, source_sections: list[str], section_by_title: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+        for source_section in source_sections:
+            exact = section_by_title.get(source_section.lower())
+            if exact:
+                return exact
+        for source_section in source_sections:
+            lowered_source = source_section.lower()
+            for title, section in section_by_title.items():
+                if lowered_source in title or title in lowered_source:
+                    return section
+        return None
 
     def _target_length(self, raw_length: Any, sections: list[dict[str, Any]]) -> int:
         try:

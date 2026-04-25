@@ -58,6 +58,16 @@ class OutlineAgent:
                 user_prompt=user_prompt,
                 schema=OUTLINE_RESPONSE_SCHEMA,
             )
+            try:
+                prompt_package['llmOutline'] = self.llm_client.invoke_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    schema=OUTLINE_RESPONSE_SCHEMA,
+                )
+                prompt_package['llmStatus'] = 'SUCCEEDED'
+            except Exception as error:
+                prompt_package['llmStatus'] = 'FAILED'
+                prompt_package['llmError'] = str(error)
 
         return prompt_package
 

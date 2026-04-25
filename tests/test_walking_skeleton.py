@@ -363,6 +363,64 @@ class WalkingSkeletonTests(unittest.TestCase):
         self.assertTrue(Path(output_path).exists())
         self.assertGreater(Path(output_path).stat().st_size, 0)
 
+    def test_outline_agent_invokes_llm_and_slide_writer_uses_outline(self):
+        outline_agent_module = import_fresh('pipeline.agents.outline_agent')
+        slide_writer_module = import_fresh('pipeline.agents.slide_writer')
+
+        class FakeLLMClient:
+            provider_name = 'fake-llm'
+
+            def __init__(self):
+                self.invoked = False
+
+            def build_json_request(self, *, system_prompt, user_prompt, schema):
+                return {'model': 'fake', 'schema': schema}
+
+            def invoke_json(self, *, system_prompt, user_prompt, schema):
+                self.invoked = True
+                return {
+                    'slides': [
+                        {
+                            'index': 1,
+                            'title': 'LLM Revenue Story',
+                            'type': 'chart',
+                            'purpose': 'Show the revenue trend.',
+                            'sourceSections': ['Revenue'],
+                        }
+                    ]
+                }
+
+        parsed_document = {
+            'jobId': 'job-llm',
+            'templateRules': {'layouts': [{'name': 'Title and Content'}]},
+            'contentSummary': {
+                'title': 'Revenue Workbook',
+                'documentType': 'xlsx',
+                'sections': [
+                    {
+                        'title': 'Revenue',
+                        'summary': 'Revenue trend by segment.',
+                        'dataType': 'chart',
+                        'columns': ['Segment', 'Revenue'],
+                        'sampleRows': [['A', 10], ['B', 20]],
+                        'numericColumns': ['Revenue'],
+                    }
+                ],
+            },
+            'userOptions': {'length': 3},
+        }
+
+        fake_client = FakeLLMClient()
+        prompt_package = outline_agent_module.OutlineAgent(fake_client).build_prompt_package(parsed_document)
+        slide_draft = slide_writer_module.SlideWriter().build_slide_draft(parsed_document, prompt_package)
+
+        self.assertTrue(fake_client.invoked)
+        self.assertEqual(prompt_package['llmStatus'], 'SUCCEEDED')
+        self.assertEqual(slide_draft['outlineSource'], 'llm')
+        self.assertEqual(slide_draft['slides'][0]['title'], 'LLM Revenue Story')
+        self.assertEqual(slide_draft['slides'][0]['type'], 'chart')
+        self.assertIn('chart', slide_draft['slides'][0])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
