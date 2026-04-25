@@ -19,6 +19,17 @@ from shared.response import build_error, build_response, get_header, is_options_
 stepfunctions = boto3.client("stepfunctions")
 
 
+def _normalize_options(options):
+    normalized = dict(options or {})
+    requested_engine = str(normalized.get("aiEngine") or "bedrock").lower()
+    if requested_engine == "openai" and not (os.environ.get("OPENAI_SECRET_NAME") or os.environ.get("OPENAI_API_KEY")):
+        normalized["aiEngineRequested"] = "openai"
+        normalized["aiEngine"] = "bedrock"
+        return normalized
+    normalized["aiEngine"] = requested_engine if requested_engine in {"bedrock", "openai"} else "bedrock"
+    return normalized
+
+
 def _state_machine_arn() -> str:
     state_machine_arn = os.environ.get("STEP_FUNCTIONS_ARN") or os.environ.get("STATE_MACHINE_ARN")
     if not state_machine_arn:
@@ -42,7 +53,7 @@ def lambda_handler(event, context):
     job_id = body.get("jobId")
     template_s3_key = body.get("templateS3Key")
     content_s3_key = body.get("contentS3Key")
-    options = body.get("options") or {}
+    options = _normalize_options(body.get("options") or {})
     demo_preset = body.get("demoPreset")
 
     if not job_id:

@@ -27,6 +27,6 @@ export const useJobStore = create<JobStore>((set) => ({
   setAudience: (audience) => set({ audience }),
   length: '10 slides',
   setLength: (length) => set({ length }),
-  aiEngine: 'OpenAI',
+  aiEngine: 'Bedrock',
   setAIEngine: (aiEngine) => set({ aiEngine }),
 }));

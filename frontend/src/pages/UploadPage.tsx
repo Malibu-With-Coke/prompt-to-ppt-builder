@@ -74,7 +74,7 @@ export default function UploadPage() {
     target: audience,
     length: lengthToSlideCount[length],
     notes: '',
-    aiEngine: aiEngine === 'OpenAI' ? 'openai' : 'bedrock',
+    aiEngine: 'bedrock',
   });
 
   const handleFileChange = (fileType: 'template' | 'content') => (event: ChangeEvent<HTMLInputElement>) => {
@@ -331,9 +331,13 @@ export default function UploadPage() {
                       type="radio"
                       value={e}
                       checked={aiEngine === e}
+                      disabled={e === 'OpenAI'}
                       onChange={() => setAIEngine(e)}
                     />
-                    <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">{e}</span>
+                    <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">
+                      {e}
+                      {e === 'OpenAI' ? ' (requires API key)' : ''}
+                    </span>
                   </label>
                 ))}
               </div>
