@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createJob, requestUploadUrl, uploadFileToS3 } from '../api/jobs';
+import type { CreateJobRequest } from '../api/jobs';
 import { useJobStore } from '../stores/jobStore';
 import type { AIEngine, Audience, Length, Tone } from '../stores/jobStore';
 
@@ -68,6 +69,14 @@ export default function UploadPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const buildJobOptions = (): CreateJobRequest['options'] => ({
+    tone,
+    target: audience,
+    length: lengthToSlideCount[length],
+    notes: '',
+    aiEngine: aiEngine === 'OpenAI' ? 'openai' : 'bedrock',
+  });
+
   const handleFileChange = (fileType: 'template' | 'content') => (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     event.target.value = '';
@@ -132,13 +141,32 @@ export default function UploadPage() {
         jobId,
         templateS3Key: templateUpload.s3Key,
         contentS3Key: contentUpload.s3Key,
-        options: {
-          tone,
-          target: audience,
-          length: lengthToSlideCount[length],
-          notes: '',
-          aiEngine: aiEngine === 'OpenAI' ? 'openai' : 'bedrock',
-        },
+        options: buildJobOptions(),
+      });
+
+      setUploadProgress(100);
+      setCurrentJobId(job.jobId);
+      navigate(`/jobs/${job.jobId}`);
+    } catch (error) {
+      setUploadProgress(0);
+      setErrorMessage(extractErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDemoGenerateClick = async () => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    setUploadProgress(15);
+
+    const jobId = crypto.randomUUID();
+
+    try {
+      const job = await createJob({
+        jobId,
+        demoPreset: 'excel',
+        options: buildJobOptions(),
       });
 
       setUploadProgress(100);
@@ -161,6 +189,27 @@ export default function UploadPage() {
           <h1 className="text-4xl font-extrabold tracking-tight font-headline text-primary mb-2">Create New Deck</h1>
           <p className="text-on-surface-variant text-lg">Upload your assets and configure your architectural output.</p>
         </div>
+
+        <section className="mb-8 rounded-xl border border-primary-container/20 bg-[linear-gradient(135deg,rgba(1,73,134,0.08),rgba(0,31,63,0.02))] p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-container/80">Demo Mode</p>
+              <h2 className="mt-1 text-2xl font-bold text-primary font-headline">Start with the built-in sample deck</h2>
+              <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
+                Skip file uploads and generate a presentation from a bundled demo template plus sample Excel data.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDemoGenerateClick}
+              disabled={isSubmitting}
+              className={`inline-flex min-w-[260px] items-center justify-center gap-3 rounded-xl px-6 py-4 font-bold text-white shadow-lg transition-all ${isSubmitting ? 'cursor-not-allowed bg-primary-container/60' : 'premium-gradient hover:scale-[1.02]'}`}
+            >
+              <span className="material-symbols-outlined">slideshow</span>
+              {isSubmitting ? 'Preparing Demo...' : 'Try Demo PPT'}
+            </button>
+          </div>
+        </section>
 
         <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           <div className="group relative flex flex-col items-center justify-center p-12 bg-surface-container-low rounded-xl cursor-pointer hover:bg-surface-container-high transition-all border-2 border-dashed border-outline-variant hover:border-primary-container">

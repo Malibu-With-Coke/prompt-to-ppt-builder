@@ -16,8 +16,9 @@ export interface UploadUrlResponse {
 
 export interface CreateJobRequest {
   jobId: string;
-  templateS3Key: string;
-  contentS3Key: string;
+  templateS3Key?: string;
+  contentS3Key?: string;
+  demoPreset?: 'excel';
   options: {
     tone: string;
     target: string;
@@ -29,8 +30,9 @@ export interface CreateJobRequest {
 
 export interface CreateJobResponse {
   jobId: string;
-  status: 'PENDING';
+  status: 'PENDING' | 'SUCCEEDED';
   createdAt: string;
+  demoPreset?: 'excel';
 }
 
 export const requestUploadUrl = async (payload: UploadUrlRequest) => {

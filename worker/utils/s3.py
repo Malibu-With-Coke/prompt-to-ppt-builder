@@ -27,3 +27,27 @@ def put_json_document(key: str, payload: dict[str, Any], bucket_name: str | None
         Body=json.dumps(payload, indent=2, default=str).encode('utf-8'),
         ContentType='application/json',
     )
+
+
+def put_object_bytes(
+    key: str,
+    payload: bytes,
+    content_type: str,
+    bucket_name: str | None = None,
+) -> None:
+    s3_client.put_object(
+        Bucket=bucket_name or resolve_bucket_name(),
+        Key=key,
+        Body=payload,
+        ContentType=content_type,
+    )
+
+
+def put_file(
+    key: str,
+    file_path: str,
+    content_type: str,
+    bucket_name: str | None = None,
+) -> None:
+    with open(file_path, 'rb') as file_obj:
+        put_object_bytes(key, file_obj.read(), content_type, bucket_name)

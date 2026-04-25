@@ -25,7 +25,7 @@ class InfraStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         ai_engine = os.getenv('AI_ENGINE', 'bedrock')
-        bedrock_model_id = os.getenv('BEDROCK_MODEL_ID', 'anthropic.claude-3-5-sonnet-20241022-v2:0')
+        bedrock_model_id = os.getenv('BEDROCK_MODEL_ID', 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0')
         openai_secret_name = os.getenv('OPENAI_SECRET_NAME', '')
 
         self.bucket = s3.Bucket(
@@ -172,6 +172,7 @@ class InfraStack(Stack):
             environment=common_env,
         )
         self.table.grant_read_write_data(create_job_lambda)
+        self.bucket.grant_read_write(create_job_lambda)
         state_machine.grant_start_execution(create_job_lambda)
 
         get_job_lambda = _lambda.Function(
@@ -202,6 +203,15 @@ class InfraStack(Stack):
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
                 allow_methods=apigw.Cors.ALL_METHODS,
+                allow_headers=[
+                    'Content-Type',
+                    'X-Amz-Date',
+                    'Authorization',
+                    'X-Api-Key',
+                    'X-Amz-Security-Token',
+                    'X-Amz-User-Agent',
+                    'X-Session-Token',
+                ],
             ),
         )
 

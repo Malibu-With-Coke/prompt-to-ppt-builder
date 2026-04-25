@@ -14,3 +14,13 @@ class BaseLLMClient(ABC):
         schema: Mapping[str, Any],
     ) -> dict[str, Any]:
         raise NotImplementedError
+
+    @abstractmethod
+    def invoke_json(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        raise NotImplementedError
