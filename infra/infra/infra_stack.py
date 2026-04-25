@@ -26,6 +26,7 @@ class InfraStack(Stack):
 
         ai_engine = os.getenv('AI_ENGINE', 'bedrock')
         bedrock_model_id = os.getenv('BEDROCK_MODEL_ID', 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0')
+        llm_max_tokens = os.getenv('LLM_MAX_TOKENS', '6000')
         openai_secret_name = os.getenv('OPENAI_SECRET_NAME', '')
 
         self.bucket = s3.Bucket(
@@ -96,6 +97,7 @@ class InfraStack(Stack):
                 'DYNAMODB_TABLE': self.table.table_name,
                 'AI_ENGINE': ai_engine,
                 'BEDROCK_MODEL_ID': bedrock_model_id,
+                'LLM_MAX_TOKENS': llm_max_tokens,
                 'OPENAI_SECRET_NAME': openai_secret_name,
                 'WORKER_ASSET_BUCKET': worker_source_asset.s3_bucket_name,
                 'WORKER_ASSET_KEY': worker_source_asset.s3_object_key,

@@ -12,6 +12,7 @@ class BedrockClient(BaseLLMClient):
 
     def __init__(self, model_id: str | None = None, runtime_client: Any | None = None):
         self.model_id = model_id or os.environ.get('BEDROCK_MODEL_ID', 'apac.anthropic.claude-3-5-sonnet-20241022-v2:0')
+        self.max_tokens = int(os.environ.get('LLM_MAX_TOKENS', '6000'))
         self.runtime_client = runtime_client or boto3.client('bedrock-runtime')
 
     def build_json_request(
@@ -31,8 +32,8 @@ class BedrockClient(BaseLLMClient):
                 }
             ],
             'inferenceConfig': {
-                'temperature': 0.2,
-                'maxTokens': 2000,
+                'temperature': 0.1,
+                'maxTokens': self.max_tokens,
             },
         }
 

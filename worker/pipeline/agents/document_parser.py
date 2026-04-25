@@ -42,6 +42,7 @@ class DocumentParser:
 
         presentation = Presentation(BytesIO(payload))
         layout_summaries: list[dict[str, Any]] = []
+        template_slides: list[dict[str, Any]] = []
         fonts: set[str] = set()
         colors: set[str] = set()
         max_bullets = 0
@@ -59,7 +60,11 @@ class DocumentParser:
             )
 
         for slide in presentation.slides:
+            slide_shapes: list[dict[str, Any]] = []
             for shape in slide.shapes:
+                shape_summary = self._summarize_template_shape(shape)
+                if shape_summary:
+                    slide_shapes.append(shape_summary)
                 if not getattr(shape, 'has_text_frame', False):
                     continue
                 text_frame = shape.text_frame
@@ -72,16 +77,48 @@ class DocumentParser:
                         color = getattr(getattr(run.font, 'color', None), 'rgb', None)
                         if color is not None:
                             colors.add(str(color))
+            template_slides.append(
+                {
+                    'index': len(template_slides) + 1,
+                    'layoutName': slide.slide_layout.name if slide.slide_layout else '',
+                    'textShapes': slide_shapes,
+                }
+            )
 
         return {
             'slideCount': len(presentation.slides),
             'slideWidth': presentation.slide_width,
             'slideHeight': presentation.slide_height,
             'layouts': layout_summaries,
+            'templateSlides': template_slides,
             'maxBullets': max_bullets or 4,
             'style': 'formal',
             'fonts': sorted(fonts),
             'colorTheme': sorted(colors)[:8],
+        }
+
+    def _summarize_template_shape(self, shape: Any) -> dict[str, Any] | None:
+        if not getattr(shape, 'has_text_frame', False):
+            return None
+        text = ' '.join(shape.text.split())
+        if not text:
+            return None
+
+        placeholder_type = None
+        if getattr(shape, 'is_placeholder', False):
+            placeholder_type = str(shape.placeholder_format.type)
+
+        return {
+            'shapeId': shape.shape_id,
+            'name': shape.name,
+            'placeholderType': placeholder_type,
+            'text': text[:500],
+            'position': {
+                'left': int(shape.left),
+                'top': int(shape.top),
+                'width': int(shape.width),
+                'height': int(shape.height),
+            },
         }
 
     def _parse_docx(self, payload: bytes) -> dict[str, Any]:

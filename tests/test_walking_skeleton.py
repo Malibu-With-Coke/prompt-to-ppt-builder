@@ -237,15 +237,22 @@ class WalkingSkeletonTests(unittest.TestCase):
         self.assertIn('templateRules', parsed_document)
         self.assertIn('contentSummary', parsed_document)
 
-        outline_prompt = {
+        deck_transform = {
             'provider': 'bedrock',
-            'systemPrompt': 'system',
-            'userPrompt': 'user',
-            'responseSchema': {'type': 'object'},
+            'llmStatus': 'SUCCEEDED',
+            'transformPlan': {
+                'deckTitle': 'Q2 Review',
+                'strategy': 'Reuse the uploaded template and replace content in-place.',
+                'slides': [
+                    {
+                        'slideIndex': 1,
+                        'sourceFocus': ['Revenue'],
+                        'speakerNotes': 'Present the Q2 revenue story.',
+                        'replacements': [{'shapeId': 2, 'text': 'Q2 Revenue Review'}],
+                    }
+                ],
+            },
         }
-        slide_draft = {'slides': [{'index': 1, 'title': 'Q1 Review', 'type': 'text', 'bullets': ['Revenue improved.']}]}
-        reviewed_slides = {'slides': [{'index': 1, 'title': 'Q1 Review', 'type': 'text', 'bullets': ['Revenue improved.']}]}
-        rendered_charts = {'charts': []}
         upload_result = {'resultS3Key': 'results/job-456/output.pptx', 'pipelineStage': 'RESULT_READY'}
 
         with mock.patch.object(orchestrator_module, 'get_job', return_value=job_record), mock.patch.object(
@@ -255,24 +262,12 @@ class WalkingSkeletonTests(unittest.TestCase):
             'parse',
             return_value=parsed_document,
         ) as parse_mock, mock.patch.object(
-            orchestrator_module.OutlineAgent,
-            'build_prompt_package',
-            return_value=outline_prompt,
-        ) as outline_mock, mock.patch.object(
+            orchestrator_module.DeckTransformAgent,
+            'build_transform_plan',
+            return_value=deck_transform,
+        ) as transform_mock, mock.patch.object(
             orchestrator_module, 'put_json_document'
         ) as put_json_mock, mock.patch.object(
-            orchestrator_module.SlideWriter,
-            'build_slide_draft',
-            return_value=slide_draft,
-        ) as slide_writer_mock, mock.patch.object(
-            orchestrator_module.ReviewAgent,
-            'review',
-            return_value=reviewed_slides,
-        ) as review_mock, mock.patch.object(
-            orchestrator_module.ChartRenderer,
-            'render',
-            return_value=rendered_charts,
-        ) as chart_mock, mock.patch.object(
             orchestrator_module.PPTBuilder,
             'build',
             return_value='/tmp/job-456-output.pptx',
@@ -284,84 +279,78 @@ class WalkingSkeletonTests(unittest.TestCase):
             result = orchestrator_module.run_pipeline('job-456')
 
         self.assertEqual(result['parsedDocument'], parsed_document)
-        self.assertEqual(result['outlinePrompt'], outline_prompt)
+        self.assertEqual(result['deckTransform'], deck_transform)
         self.assertEqual(result['uploadResult'], upload_result)
         parse_mock.assert_called_once_with(job_record)
-        outline_mock.assert_called_once_with(parsed_document)
-        slide_writer_mock.assert_called_once_with(parsed_document, outline_prompt)
-        review_mock.assert_called_once_with(slide_draft)
-        chart_mock.assert_called_once_with('job-456', reviewed_slides)
-        ppt_builder_mock.assert_called_once_with(job_record, reviewed_slides, rendered_charts)
+        transform_mock.assert_called_once_with(parsed_document)
+        ppt_builder_mock.assert_called_once_with(job_record, deck_transform)
         uploader_mock.assert_called_once_with('job-456', '/tmp/job-456-output.pptx')
-        self.assertEqual(put_json_mock.call_count, 4)
+        self.assertEqual(put_json_mock.call_count, 2)
         put_paths = [call.args[0] for call in put_json_mock.call_args_list]
         self.assertEqual(
             put_paths,
             [
                 'temp/job-456/parsed_document.json',
-                'temp/job-456/outline_request.json',
-                'temp/job-456/slide_draft.json',
-                'temp/job-456/reviewed_slides.json',
+                'temp/job-456/deck_transform_plan.json',
             ],
         )
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'DOCUMENT_PARSING'})
-        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'OUTLINE_PROMPT_GENERATION'})
-        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'SLIDE_DRAFTING'})
-        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'REVIEWING'})
-        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'CHART_RENDERING'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'LLM_TEMPLATE_TRANSFORMATION'})
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'PPT_BUILDING'})
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'RESULT_UPLOADING'})
 
-    def test_worker_agents_create_chart_and_ppt_artifacts(self):
-        slide_writer_module = import_fresh('pipeline.agents.slide_writer')
-        review_agent_module = import_fresh('pipeline.agents.review_agent')
-        chart_renderer_module = import_fresh('pipeline.agents.chart_renderer')
+    def test_template_transform_builder_replaces_existing_slide_text(self):
+        document_parser_module = import_fresh('pipeline.agents.document_parser')
         ppt_builder_module = import_fresh('pipeline.agents.ppt_builder')
-
-        parsed_document = {
-            'jobId': 'job-xlsx',
-            'templateRules': {'layouts': [{'name': 'Title and Content'}], 'maxBullets': 4},
-            'contentSummary': {
-                'title': 'Sales Workbook',
-                'documentType': 'xlsx',
-                'sections': [
-                    {
-                        'title': 'Revenue',
-                        'summary': 'Revenue by segment.',
-                        'dataType': 'chart',
-                        'columns': ['Segment', 'Revenue'],
-                        'sampleRows': [['A', 10], ['B', 15], ['C', 12]],
-                        'numericColumns': ['Revenue'],
-                    }
-                ],
-            },
-            'userOptions': {'length': 3, 'tone': 'Executive', 'target': 'Management'},
-        }
-
-        slide_draft = slide_writer_module.SlideWriter().build_slide_draft(parsed_document)
-        reviewed_slides = review_agent_module.ReviewAgent().review(slide_draft)
-
-        with mock.patch.object(chart_renderer_module, 'put_file') as put_file_mock:
-            rendered_charts = chart_renderer_module.ChartRenderer().render('job-xlsx', reviewed_slides)
-
-        self.assertEqual(len(rendered_charts['charts']), 1)
-        self.assertTrue(Path(rendered_charts['charts'][0]['localPath']).exists())
-        put_file_mock.assert_called_once()
 
         from pptx import Presentation
 
-        template_path = Path(tempfile.gettempdir()) / 'unit-template.pptx'
-        Presentation().save(template_path)
+        presentation = Presentation()
+        slide = presentation.slides.add_slide(presentation.slide_layouts[1])
+        slide.shapes.title.text = 'Q1 Business Review'
+        body = slide.placeholders[1]
+        body.text = 'Revenue grew 8% in Q1.\nPipeline coverage is stable.'
+
+        template_path = Path(tempfile.gettempdir()) / 'template-transform-unit.pptx'
+        presentation.save(template_path)
+        template_bytes = template_path.read_bytes()
+        template_rules = document_parser_module.DocumentParser()._parse_template(template_bytes)
+
+        title_shape_id = template_rules['templateSlides'][0]['textShapes'][0]['shapeId']
+        body_shape_id = template_rules['templateSlides'][0]['textShapes'][1]['shapeId']
+        deck_transform = {
+            'llmStatus': 'SUCCEEDED',
+            'transformPlan': {
+                'deckTitle': 'Q2 Business Review',
+                'strategy': 'Replace Q1 template claims with Q2 source facts.',
+                'slides': [
+                    {
+                        'slideIndex': 1,
+                        'sourceFocus': ['Executive Summary'],
+                        'speakerNotes': 'Discuss Q2 performance.',
+                        'replacements': [
+                            {'shapeId': title_shape_id, 'text': 'Q2 Business Review'},
+                            {'shapeId': body_shape_id, 'text': 'Revenue grew 14% in Q2.\nPipeline coverage improved to 3.4x.'},
+                        ],
+                    }
+                ],
+            },
+        }
 
         job_record = {
-            'jobId': 'job-xlsx',
-            'templateS3Key': 'uploads/job-xlsx/template.pptx',
+            'jobId': 'job-template-transform',
+            'templateS3Key': 'uploads/job-template-transform/template.pptx',
         }
-        with mock.patch.object(ppt_builder_module, 'get_object_bytes', return_value=template_path.read_bytes()):
-            output_path = ppt_builder_module.PPTBuilder().build(job_record, reviewed_slides, rendered_charts)
+        with mock.patch.object(ppt_builder_module, 'get_object_bytes', return_value=template_bytes):
+            output_path = ppt_builder_module.PPTBuilder().build(job_record, deck_transform)
 
         self.assertTrue(Path(output_path).exists())
         self.assertGreater(Path(output_path).stat().st_size, 0)
+        output_presentation = Presentation(output_path)
+        output_text = '\n'.join(shape.text for shape in output_presentation.slides[0].shapes if getattr(shape, 'has_text_frame', False))
+        self.assertIn('Q2 Business Review', output_text)
+        self.assertIn('Revenue grew 14% in Q2.', output_text)
+        self.assertNotIn('Q1 Business Review', output_text)
 
     def test_outline_agent_invokes_llm_and_slide_writer_uses_outline(self):
         outline_agent_module = import_fresh('pipeline.agents.outline_agent')
@@ -420,6 +409,65 @@ class WalkingSkeletonTests(unittest.TestCase):
         self.assertEqual(slide_draft['slides'][0]['title'], 'LLM Revenue Story')
         self.assertEqual(slide_draft['slides'][0]['type'], 'chart')
         self.assertIn('chart', slide_draft['slides'][0])
+
+    def test_deck_transform_agent_requires_llm_replacements_for_template_shapes(self):
+        deck_transform_module = import_fresh('pipeline.agents.deck_transform_agent')
+
+        class FakeTransformLLMClient:
+            provider_name = 'fake-llm'
+
+            def __init__(self):
+                self.invoked = False
+
+            def build_json_request(self, *, system_prompt, user_prompt, schema):
+                return {'model': 'fake', 'schema': schema}
+
+            def invoke_json(self, *, system_prompt, user_prompt, schema):
+                self.invoked = True
+                return {
+                    'deckTitle': 'Q2 Business Review',
+                    'strategy': 'Transform Q1 template slides into Q2 report slides.',
+                    'slides': [
+                        {
+                            'slideIndex': 1,
+                            'sourceFocus': ['Executive Summary'],
+                            'speakerNotes': 'Explain Q2 results.',
+                            'replacements': [
+                                {'shapeId': 10, 'text': 'Q2 Business Review'},
+                                {'shapeId': 11, 'text': 'Revenue grew 14% and pipeline coverage improved.'},
+                            ],
+                        }
+                    ],
+                }
+
+        parsed_document = {
+            'jobId': 'job-transform',
+            'templateRules': {
+                'slideCount': 1,
+                'templateSlides': [
+                    {
+                        'index': 1,
+                        'textShapes': [
+                            {'shapeId': 10, 'text': 'Q1 Business Review'},
+                            {'shapeId': 11, 'text': 'Revenue grew 8%.'},
+                        ],
+                    }
+                ],
+            },
+            'contentSummary': {
+                'title': 'Q2 Business Review',
+                'documentType': 'docx',
+                'sections': [{'title': 'Executive Summary', 'summary': 'Revenue grew 14%.'}],
+            },
+            'userOptions': {'tone': '공식적', 'target': '경영진'},
+        }
+
+        fake_client = FakeTransformLLMClient()
+        deck_transform = deck_transform_module.DeckTransformAgent(fake_client).build_transform_plan(parsed_document)
+
+        self.assertTrue(fake_client.invoked)
+        self.assertEqual(deck_transform['llmStatus'], 'SUCCEEDED')
+        self.assertEqual(deck_transform['transformPlan']['slides'][0]['replacements'][0]['text'], 'Q2 Business Review')
 
 
 if __name__ == '__main__':

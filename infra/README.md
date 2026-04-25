@@ -25,6 +25,7 @@ $env:CDK_DEFAULT_ACCOUNT='123456789012'
 $env:CDK_DEFAULT_REGION='ap-northeast-2'
 $env:AI_ENGINE='bedrock'
 $env:BEDROCK_MODEL_ID='apac.anthropic.claude-3-5-sonnet-20241022-v2:0'
+$env:LLM_MAX_TOKENS='6000'
 # Optional only if using OpenAI mode:
 $env:OPENAI_SECRET_NAME='ppt-builder/openai-api-key'
 ```
@@ -56,5 +57,5 @@ Use `ApiBaseUrl` as the frontend `VITE_API_BASE_URL` value in Amplify.
 3. Call `POST /jobs`.
 4. Confirm a Step Functions execution starts.
 5. Confirm the ECS task starts and CloudWatch logs show `entrypoint.py` running.
-6. Confirm DynamoDB `pipelineStage` reaches `OUTLINE_PROMPT_READY`.
-7. Confirm `GET /jobs/{jobId}` returns the job for the same `X-Session-Token`.
+6. Confirm DynamoDB `pipelineStage` reaches `RESULT_READY`.
+7. Confirm `GET /jobs/{jobId}` returns `SUCCEEDED` and a `resultUrl` for the same `X-Session-Token`.
