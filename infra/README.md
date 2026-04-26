@@ -24,7 +24,7 @@ Set these before `cdk synth` / `cdk deploy`:
 $env:CDK_DEFAULT_ACCOUNT='123456789012'
 $env:CDK_DEFAULT_REGION='ap-northeast-2'
 $env:AI_ENGINE='bedrock'
-$env:BEDROCK_MODEL_ID='apac.anthropic.claude-3-5-sonnet-20241022-v2:0'
+$env:BEDROCK_MODEL_ID='apac.amazon.nova-lite-v1:0'
 $env:LLM_MAX_TOKENS='6000'
 # Optional only if using OpenAI mode:
 $env:OPENAI_SECRET_NAME='ppt-builder/openai-api-key'
