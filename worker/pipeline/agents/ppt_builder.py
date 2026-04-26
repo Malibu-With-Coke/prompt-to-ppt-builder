@@ -46,16 +46,27 @@ class PPTBuilder:
 
     def _replace_shape_text(self, shape: Any, text: str) -> None:
         from pptx.enum.text import MSO_AUTO_SIZE
-        from pptx.util import Pt
 
         text_frame = shape.text_frame
-        text_frame.clear()
         text_frame.word_wrap = True
         text_frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
         lines = text.splitlines() or ['']
+        paragraphs = list(text_frame.paragraphs)
+
         for index, line in enumerate(lines):
-            paragraph = text_frame.paragraphs[0] if index == 0 else text_frame.add_paragraph()
-            paragraph.text = line
-            for run in paragraph.runs:
-                run.font.size = run.font.size or Pt(16)
+            paragraph = paragraphs[index] if index < len(paragraphs) else text_frame.add_paragraph()
+            self._replace_paragraph_text_preserving_style(paragraph, line)
+
+        for paragraph in paragraphs[len(lines) :]:
+            self._replace_paragraph_text_preserving_style(paragraph, '')
+
+    def _replace_paragraph_text_preserving_style(self, paragraph: Any, text: str) -> None:
+        runs = list(paragraph.runs)
+        if not runs:
+            paragraph.text = text
+            return
+
+        runs[0].text = text
+        for run in runs[1:]:
+            run.text = ''

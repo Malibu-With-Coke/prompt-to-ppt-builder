@@ -304,12 +304,22 @@ class WalkingSkeletonTests(unittest.TestCase):
         ppt_builder_module = import_fresh('pipeline.agents.ppt_builder')
 
         from pptx import Presentation
+        from pptx.dml.color import RGBColor
+        from pptx.util import Pt
 
         presentation = Presentation()
         slide = presentation.slides.add_slide(presentation.slide_layouts[1])
         slide.shapes.title.text = 'Q1 Business Review'
+        title_run = slide.shapes.title.text_frame.paragraphs[0].runs[0]
+        title_run.font.name = 'Aptos Display'
+        title_run.font.size = Pt(30)
+        title_run.font.color.rgb = RGBColor(0x01, 0x49, 0x86)
         body = slide.placeholders[1]
         body.text = 'Revenue grew 8% in Q1.\nPipeline coverage is stable.'
+        body_run = body.text_frame.paragraphs[0].runs[0]
+        body_run.font.name = 'Aptos'
+        body_run.font.size = Pt(18)
+        body_run.font.color.rgb = RGBColor(0x0F, 0x20, 0x38)
 
         template_path = Path(tempfile.gettempdir()) / 'template-transform-unit.pptx'
         presentation.save(template_path)
@@ -347,10 +357,17 @@ class WalkingSkeletonTests(unittest.TestCase):
         self.assertTrue(Path(output_path).exists())
         self.assertGreater(Path(output_path).stat().st_size, 0)
         output_presentation = Presentation(output_path)
-        output_text = '\n'.join(shape.text for shape in output_presentation.slides[0].shapes if getattr(shape, 'has_text_frame', False))
+        output_slide = output_presentation.slides[0]
+        output_title = output_slide.shapes.title
+        output_body = output_slide.placeholders[1]
+        output_text = '\n'.join(shape.text for shape in output_slide.shapes if getattr(shape, 'has_text_frame', False))
         self.assertIn('Q2 Business Review', output_text)
         self.assertIn('Revenue grew 14% in Q2.', output_text)
         self.assertNotIn('Q1 Business Review', output_text)
+        self.assertEqual(output_title.text_frame.paragraphs[0].runs[0].font.name, 'Aptos Display')
+        self.assertEqual(output_title.text_frame.paragraphs[0].runs[0].font.size, Pt(30))
+        self.assertEqual(output_body.text_frame.paragraphs[0].runs[0].font.name, 'Aptos')
+        self.assertEqual(output_body.text_frame.paragraphs[0].runs[0].font.size, Pt(18))
 
     def test_outline_agent_invokes_llm_and_slide_writer_uses_outline(self):
         outline_agent_module = import_fresh('pipeline.agents.outline_agent')
