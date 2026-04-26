@@ -25,8 +25,8 @@ class InfraStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         ai_engine = os.getenv('AI_ENGINE', 'bedrock')
-        bedrock_model_id = os.getenv('BEDROCK_MODEL_ID', 'apac.amazon.nova-lite-v1:0')
-        llm_max_tokens = os.getenv('LLM_MAX_TOKENS', '6000')
+        bedrock_model_id = os.getenv('BEDROCK_MODEL_ID', 'global.anthropic.claude-sonnet-4-5-20250929-v1:0')
+        llm_max_tokens = os.getenv('LLM_MAX_TOKENS', '10000')
         openai_secret_name = os.getenv('OPENAI_SECRET_NAME', '')
 
         self.bucket = s3.Bucket(

@@ -11,8 +11,8 @@ class BedrockClient(BaseLLMClient):
     provider_name = 'bedrock'
 
     def __init__(self, model_id: str | None = None, runtime_client: Any | None = None):
-        self.model_id = model_id or os.environ.get('BEDROCK_MODEL_ID', 'apac.amazon.nova-lite-v1:0')
-        self.max_tokens = int(os.environ.get('LLM_MAX_TOKENS', '6000'))
+        self.model_id = model_id or os.environ.get('BEDROCK_MODEL_ID', 'global.anthropic.claude-sonnet-4-5-20250929-v1:0')
+        self.max_tokens = int(os.environ.get('LLM_MAX_TOKENS', '10000'))
         self.runtime_client = runtime_client or boto3.client('bedrock-runtime')
 
     def build_json_request(
