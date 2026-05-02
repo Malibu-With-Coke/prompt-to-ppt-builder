@@ -9,7 +9,7 @@
 
 ## 2. 한 줄 요약
 
-사용자가 PPT 템플릿과 문서를 올리면, 프론트가 Job을 생성하고, 백엔드가 비동기 워커를 실행해 LLM이 템플릿 슬라이드의 텍스트 shape를 새 콘텐츠로 치환하는 구조다.
+사용자가 PPT 템플릿과 하나 이상의 DOCX/XLSX 문서를 올리면, 프론트가 Job을 생성하고, 백엔드가 비동기 워커를 실행해 LLM이 템플릿 슬라이드의 텍스트 shape를 새 콘텐츠로 치환하는 구조다.
 
 현재는 초기 데모 피드백을 위해 업로드 없이 결과를 바로 보여주는 데모 브랜치도 함께 운영한다.
 
@@ -68,9 +68,14 @@
 - Python 기반 파이프라인
 - 현재 구현 범위
   - 템플릿 PPT 슬라이드/텍스트 shape 파싱
-  - Word/Excel 콘텐츠 파싱
+  - 복수 Word/Excel 콘텐츠 파싱
+  - DOCX heading/table/report 구조 요약
+  - XLSX workbook/table/chart/formula-aware 요약
   - LLM 기반 템플릿 변환 계획 생성
+  - shape size 기반 fit hint 생성
   - 원본 템플릿 슬라이드 in-place 텍스트 치환
+  - PPT 구조 검증 및 선택적 render smoke test
+  - ReviewAgent 후처리 QA
   - 결과 PPT 업로드
 
 ---
@@ -78,18 +83,20 @@
 ## 5. 일반 생성 흐름
 
 ```text
-1. 사용자가 template.pptx + content.docx/xlsx 업로드
+1. 사용자가 template.pptx + content-01.docx/xlsx, content-02.docx/xlsx ... 업로드
 2. 프론트가 S3 Presigned URL 요청
 3. 브라우저가 S3에 직접 업로드
 4. 프론트가 POST /jobs 호출
 5. Lambda가 DynamoDB에 PENDING 저장
 6. Lambda가 Step Functions 실행
 7. Step Functions가 Fargate Worker 실행
-8. Worker가 템플릿과 콘텐츠를 파싱
-9. LLM이 각 템플릿 text shape의 새 문구를 생성
+8. Worker가 템플릿과 모든 콘텐츠 파일을 구조적으로 파싱
+9. LLM이 각 템플릿 text shape의 새 문구와 chart/table update intent를 생성
 10. Worker가 템플릿 슬라이드를 직접 치환해 결과 PPT 생성
-11. 프론트가 GET /jobs/{jobId} 폴링
-12. 완료 시 결과 PPT 다운로드
+11. Worker가 PPT 구조 QA 및 render smoke test를 수행
+12. ReviewAgent가 누락 replacement, Excel intent, high text density를 검사
+13. 프론트가 GET /jobs/{jobId} 폴링
+14. 완료 시 결과 PPT 다운로드
 ```
 
 ---
@@ -147,15 +154,20 @@
 
 - 프론트와 백엔드가 실제 AWS 상에서 연결되어 있다.
 - 업로드 기반 Job 생성 골격이 이미 동작한다.
+- 일반 업로드 플로우가 복수 DOCX/XLSX 입력을 지원한다.
 - 데모 브랜치에서는 한 번의 클릭으로 결과 PPT를 보여줄 수 있다.
 - Step Functions + Fargate 구조로 확장 가능한 백엔드 기반이 준비돼 있다.
 - 일반 업로드 플로우는 LLM이 템플릿 text shape별 replacement plan을 만들고, 워커가 원본 PPT 양식을 유지한 채 치환한다.
+- PPT Builder 뒤에 validation/review 단계가 있어 고밀도 텍스트와 렌더 실패를 잡을 수 있다.
+- MarkItDown은 런타임에서 제거했고, deterministic DOCX/XLSX 구조 파서를 source of truth로 사용한다.
 
 ---
 
 ## 10. 현재 한계
 
 - Excel native chart/table 데이터 갱신은 아직 제한적이다.
+- chart/table update intent는 생성되지만 native chart/table 반영은 후속 과제다.
+- `high_text_density`는 `needs_retry`로 감지되지만 자동 LLM retry loop는 아직 후속 과제다.
 - 현재 MVP는 템플릿의 slide count/order/layout을 유지하는 변환에 초점을 둔다.
 - 데모 fast-path는 피드백 수집용으로 계속 유지한다.
 
@@ -164,7 +176,7 @@
 ## 11. 권장 다음 단계
 
 1. Excel native chart/table 갱신 고도화
-2. LLM 변환 품질 평가 및 재시도 루프 추가
+2. LLM 변환 품질 평가 결과를 이용한 자동 재시도 루프 추가
 3. 운영 모니터링과 알람 구성
 4. 커스텀 도메인 연결
 5. 데모 브랜치 기능의 메인 반영 여부 결정

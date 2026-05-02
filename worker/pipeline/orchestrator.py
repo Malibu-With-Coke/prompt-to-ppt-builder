@@ -1,6 +1,8 @@
 from pipeline.agents.deck_transform_agent import DeckTransformAgent
 from pipeline.agents.document_parser import DocumentParser
 from pipeline.agents.ppt_builder import PPTBuilder
+from pipeline.agents.ppt_validation_agent import PPTValidationAgent
+from pipeline.agents.review_agent import ReviewAgent
 from pipeline.agents.result_uploader import ResultUploader
 from pipeline.llm import BedrockClient, OpenAIClient
 from utils.dynamo import get_job, update_job_status
@@ -34,6 +36,16 @@ def run_pipeline(job_id: str):
         update_job_status(job_id, 'RUNNING', extra_updates={'pipelineStage': 'PPT_BUILDING'})
         output_path = PPTBuilder().build(job, deck_transform)
 
+        update_job_status(job_id, 'RUNNING', extra_updates={'pipelineStage': 'PPT_VALIDATION'})
+        ppt_validation = PPTValidationAgent().validate(job_id, output_path, deck_transform)
+        put_json_document(f'temp/{job_id}/ppt_validation.json', ppt_validation)
+
+        update_job_status(job_id, 'RUNNING', extra_updates={'pipelineStage': 'PPT_REVIEW'})
+        review_report = ReviewAgent().review_output(parsed_document, deck_transform, ppt_validation)
+        put_json_document(f'temp/{job_id}/review_report.json', review_report)
+        if review_report.get('status') == 'needs_retry':
+            raise ValueError(f'Generated PPT failed QA review: {review_report.get("summary")}')
+
         update_job_status(job_id, 'RUNNING', extra_updates={'pipelineStage': 'RESULT_UPLOADING'})
         upload_result = ResultUploader().upload(job_id, output_path)
 
@@ -42,6 +54,8 @@ def run_pipeline(job_id: str):
             'parsedDocument': parsed_document,
             'deckTransform': deck_transform,
             'outputPath': output_path,
+            'pptValidation': ppt_validation,
+            'reviewReport': review_report,
             'uploadResult': upload_result,
         }
     except Exception as error:

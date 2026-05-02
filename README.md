@@ -1,6 +1,8 @@
 # Prompt-to-PPT Enterprise Builder
 
-Prompt-to-PPT is a monorepo for generating presentation decks from uploaded source documents and a PowerPoint template.
+Prompt-to-PPT is a monorepo for generating presentation decks from uploaded DOCX/XLSX source files and a PowerPoint template.
+
+The current worker keeps the uploaded template deck as the layout source of truth, parses multiple content files, asks an LLM for shape-level replacement text plus chart/table update intent, builds a new PPTX in-place, and runs post-build QA.
 
 ## Structure
 
@@ -10,11 +12,39 @@ Prompt-to-PPT is a monorepo for generating presentation decks from uploaded sour
 - `infra/`: AWS CDK infrastructure for API, storage, Step Functions, and hosting
 - `tests/`: Walking Skeleton tests
 
+## Current Pipeline
+
+```text
+Upload template.pptx + one or more content files
+  -> parse PPT template text shapes
+  -> parse DOCX heading/table/report structure
+  -> parse XLSX workbook/sheet/table/chart/formula structure
+  -> LLM creates text replacements plus chart/table update intent
+  -> PPT builder replaces template text in-place
+  -> PPT validation audits density/bounds and optionally renders with LibreOffice
+  -> ReviewAgent flags QA issues before upload
+```
+
+Supported source files:
+
+- `.docx`: headings, paragraphs, table previews, report signals
+- `.xlsx`: workbook profile, sheets, sample rows, numeric columns, formulas, Excel tables, embedded chart metadata
+
+MarkItDown is intentionally not used in the runtime path. Exact structured parsers are the source of truth.
+
 ## Local Development
 
 ```powershell
 npm run dev
 ```
+
+## Tests
+
+```powershell
+python -B -m unittest tests.test_walking_skeleton
+```
+
+Use `-B` on Windows to avoid `.pyc` cache file lock noise when tests are run near other Python commands.
 
 ## Frontend Build
 
@@ -35,6 +65,8 @@ $env:AI_ENGINE='bedrock'
 $env:BEDROCK_MODEL_ID='global.anthropic.claude-sonnet-4-5-20250929-v1:0'
 cdk deploy --require-approval never
 ```
+
+The worker Docker image installs LibreOffice and Poppler so `PPTValidationAgent` can run a render smoke test in AWS. Local machines without `soffice/libreoffice` and `pdftoppm` will still run the structural PPT audit, but render validation is reported as skipped.
 
 ## Amplify Frontend Hosting
 
@@ -64,4 +96,4 @@ The demo branch adds a one-click flow on the upload page so reviewers can genera
 
 Amplify preview builds call the API with the `X-Session-Token` header. API Gateway CORS must explicitly allow this header or the browser will show a generic `Network Error` even when the backend itself is healthy.
 
-This is configured in [D:\hackerton\infra\infra\infra_stack.py](D:\hackerton\infra\infra\infra_stack.py) via `default_cors_preflight_options.allow_headers`.
+This is configured in `infra/infra/infra_stack.py` via `default_cors_preflight_options.allow_headers`.

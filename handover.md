@@ -1,65 +1,110 @@
 # Handover Document: Prompt-to-PPT Enterprise Builder
 
-This document summarizes the current state of the "Prompt-to-PPT" project to facilitate a seamless transition for the next developer or AI agent.
+This document summarizes the current state of the Prompt-to-PPT project for the next developer or AI agent.
 
 ## 1. Project Overview
-A platform that transforms documents (Word/Excel) into professional PowerPoint presentations using an agentic AI pipeline (AWS Lambda + Step Functions + Fargate Worker).
 
-- **Root Directory**: `d:\hackerton`
-- **Monorepo Structure**:
-  - `frontend/`: React + Vite + Tailwind + Zustand.
-  - `backend/`: AWS Lambda (Python).
-  - `worker/`: Fargate Container (Python) with 7-stage agent pipeline.
-  - `infra/`: Infrastructure as Code (Terraform/CDK) placeholders.
-  - `docs/`: Design documents and specifications.
+Prompt-to-PPT transforms an uploaded PowerPoint template plus one or more DOCX/XLSX source files into a new PPTX. The current implementation preserves the uploaded template's slide count, order, layout, fonts, and text shape structure, then replaces stale text in-place using an LLM-generated transform plan.
 
----
+- Root directory: `D:\Coding\hackerton`
+- Frontend: React + Vite + Tailwind
+- Backend: AWS Lambda API handlers
+- Worker: Python ECS/Fargate pipeline
+- Infra: AWS CDK
+- Tests: `tests/test_walking_skeleton.py`
 
-## 2. Current Progress & Status
+## 2. Current Status
 
-### A. Frontend (`frontend/`)
-- **Tech Stack**: React 18, Vite, Tailwind CSS v3, Zustand.
-- **UI Design**: Integrated professional "Enterprise Navy" theme generated via Stitch MCP.
-- **Pages Implemented**:
-  - `UploadPage.tsx`: File upload dropzones and configuration (Tone, Audience, etc.).
-  - `JobStatusPage.tsx`: Animated progress ring with mock polling.
-  - `HistoryPage.tsx`: Table listing jobs with status badges.
-- **State Management**: `useJobStore.ts` manages API parameters and `currentJobId`.
-- **Status**: Visuals are 100% migrated from prototypes. Mock logic allows navigating "Upload -> Status -> History". Needs real API integration.
+### Frontend
 
-### B. Backend (`backend/`)
-- **Tech Stack**: Python (AWS Lambda).
-- **Handlers**: Stubs created for `create_job`, `get_job`, `list_jobs`, and `upload_url`.
-- **Shared Storage**: `shared/` directory set up for DynamoDB and S3 interactions.
-- **Status**: API contract defined but business logic (DB queries, signed URL generation) is currently placeholders.
+- Upload page supports one template PPTX and multiple DOCX/XLSX content files.
+- Content uploads use `fileIndex`, producing stable S3 keys such as `content-01.docx` and `content-02.xlsx`.
+- Job creation sends `contentS3Keys` while retaining compatibility with legacy `contentS3Key`.
+- Status page includes worker stages through `PPT_VALIDATION` and `PPT_REVIEW`.
 
-### C. Worker (`worker/`)
-- **Tech Stack**: Python 3.11, Docker.
-- **Pipeline**: `PipelineOrchestrator` is set up with placeholders for 7 agents (`DocumentParser` to `ResultUploader`).
-- **Status**: Dockerfile and entrypoint ready. Core LLM logic for PPT generation needs implementation.
+### Backend
 
----
+- Upload URL APIs support template uploads and indexed content uploads.
+- Job creation accepts `contentS3Keys` arrays.
+- DynamoDB records store both legacy `contentS3Key` and new `contentS3Keys`.
+- Demo fast-path remains available for bundled demo assets.
 
-## 3. Key Technical Decisions
-1. **Zustand for State**: Chosen for simplicity in managing session tokens and job parameters.
-2. **Tailwind v3**: Used for stable utility-first styling with custom design tokens from Stitch.
-3. **Python Environment**: Lambda and Worker have separate `requirements.txt` to keep Lambda footprints small.
-4. **Mock Polling**: Frontend currently simulates progress; needs to be replaced with `axios` calls to `GET /jobs/{id}`.
+### Worker
 
----
+Current worker flow:
 
-## 4. Next Steps (Priority Order)
-1. **Backend Integration**: Implement real logic in `backend/lambdas/` to interact with DynamoDB and S3.
-2. **Frontend Wiring**: Replace mock `handleGenerateClick` in `UploadPage.tsx` with actual `upload_url` and `create_job` calls.
-3. **Worker Implementation**: Flesh out the 7-stage agent pipeline in `worker/pipeline/`.
-4. **Infra Deployment**: Create Terraform/CDK scripts in `infra/` to provision S3 buckets, DynamoDB tables, and Step Functions.
+```text
+DocumentParser
+  -> DeckTransformAgent
+  -> PPTBuilder
+  -> PPTValidationAgent
+  -> ReviewAgent
+  -> ResultUploader
+```
 
----
+Document parsing:
 
-## 5. Development Guide
-- **Start Frontend**: `cd frontend && npm run dev` (Port 5173).
-- **Check UI Previews**: Static HTML prototypes are at `d:\hackerton\previews\`.
-- **Configs**: See `.env.example` in the root.
+- PPTX template: slide count, dimensions, layouts, text shape IDs, text positions, fonts, colors
+- DOCX: title, heading outline, paragraph sections, table previews, style counts, report signals
+- XLSX: workbook profile, sheet summaries, sample rows, numeric columns, formula cells, structured tables, embedded chart metadata
+- Multi-file input: combined `documentType: "multi"` with flattened sections plus per-source `documents`, `documentProfiles`, and `workbookProfiles`
 
----
-*Handover prepared by Antigravity AI*
+LLM transform:
+
+- Produces `deckTitle`, `strategy`, slide-level `sourceFocus`, `speakerNotes`, and `shapeId -> text` replacements.
+- Also supports `chartUpdates` and `tableUpdates` intent for Excel-derived content.
+- Each template text shape now includes a `fit` hint with `role`, `maxChars`, `maxLines`, and `areaIn2` so the LLM keeps copy within the original box.
+
+PPT QA:
+
+- `PPTValidationAgent` audits generated PPTX files for bounds, text length, and text density.
+- In AWS worker images, LibreOffice + Poppler enable render smoke tests.
+- `ReviewAgent` checks replacement coverage, Excel update intent, render status, and PPT validation warnings.
+- `high_text_density` is promoted to an error so the review status becomes `needs_retry`.
+
+## 3. Important Technical Decisions
+
+- MarkItDown is intentionally removed from the runtime path. DOCX/XLSX structured parsers are the source of truth.
+- Native chart/table updates are not yet applied to the PPTX; the LLM currently emits chart/table update intent for future builder work.
+- The MVP keeps the template slide count, order, and layout unchanged.
+- The demo fast-path remains for feedback and quick previews.
+
+## 4. Verification
+
+Current baseline:
+
+```powershell
+python -B -m unittest tests.test_walking_skeleton
+```
+
+Recent local verification covered:
+
+- DOCX + XLSX multi-file upload contract
+- worker orchestration with validation and review stages
+- template text replacement preserving style
+- shape fit hints in DeckTransformAgent
+- `high_text_density` becoming `needs_retry`
+
+For frontend:
+
+```powershell
+cd frontend
+npm run build
+```
+
+On this Windows environment, `npm run build` may need to run outside the sandbox because Vite can hit `spawn EPERM` during config bundling.
+
+## 5. Known Gaps
+
+1. Automatic retry loop is not implemented yet. `ReviewAgent` can mark `needs_retry`, but `Orchestrator` currently fails the job instead of asking the LLM to shorten only problematic shapes.
+2. Excel native chart/table updates are intent-only. `PPTBuilder` still performs text replacement only.
+3. Local render validation is skipped unless LibreOffice and Poppler are installed. AWS worker images include them.
+4. Demo fast-path uses static bundled output and should be kept conceptually separate from the full worker path.
+
+## 6. Recommended Next Steps
+
+1. Add targeted LLM retry for `high_text_density` and render failures.
+2. Implement native chart/table update handling in `PPTBuilder`.
+3. Add integration tests around multi-source parsing with real sample files.
+4. Add CloudWatch alarms around failed jobs and render validation failures.
+5. Decide whether the demo branch behavior should be merged into `main` or remain isolated.

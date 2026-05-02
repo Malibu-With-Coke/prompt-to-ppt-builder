@@ -41,6 +41,7 @@ cdk.out/
 
 # === Build artifacts ===
 *.zip
+tmp/
 gcm-diagnose.log
 tmp-upload.json
 infra/cdk-outputs.json

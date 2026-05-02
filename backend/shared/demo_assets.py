@@ -59,6 +59,7 @@ def prepare_demo_job_assets(job_id: str, preset: str = "excel") -> dict[str, str
     return {
         "templateS3Key": template_key,
         "contentS3Key": content_key,
+        "contentS3Keys": [content_key],
         "resultS3Key": result_key,
         "pipelineStage": asset_config["pipelineStage"],
     }

@@ -34,10 +34,33 @@ If `X-Session-Token` is missing from the CORS allow-list:
 - browser requests fail with a generic `Network Error`
 - the demo button appears broken even though the backend is healthy
 
-The current CORS source of truth is [infra_stack.py](D:\hackerton\infra\infra\infra_stack.py).
+The current CORS source of truth is `infra/infra/infra_stack.py`.
 
 ## Operational Reminder
 
 - Frontend-only changes: push to GitHub and let Amplify rebuild
 - Backend or infrastructure changes: run `cdk deploy` from `infra/`
 - Demo branch changes should stay isolated until they are intentionally merged into `main`
+
+## Worker Runtime Notes
+
+- The worker image installs LibreOffice and Poppler so `PPTValidationAgent` can convert generated PPTX files to PDF/PNG for a render smoke test.
+- Local development machines without `soffice/libreoffice` and `pdftoppm` will report render validation as `skipped`; structural PPTX audit still runs.
+- MarkItDown is not part of the worker dependency set. DOCX and XLSX parsing are handled by `python-docx` and `openpyxl`.
+- On Windows local runs, prefer `python -B -m unittest tests.test_walking_skeleton` to avoid `__pycache__` file lock noise when tests and compile checks run close together.
+
+## Pipeline Stages
+
+Current worker stages:
+
+```text
+DOCUMENT_PARSING
+LLM_TEMPLATE_TRANSFORMATION
+PPT_BUILDING
+PPT_VALIDATION
+PPT_REVIEW
+RESULT_UPLOADING
+RESULT_READY
+```
+
+`PPT_REVIEW` can return `needs_retry` for blocking QA findings such as render failure, missing template text replacements, or `high_text_density`.

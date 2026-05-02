@@ -6,6 +6,9 @@ from typing import Any
 from pipeline.llm.base import BaseLLMClient
 
 
+EMU_PER_INCH = 914400
+
+
 DECK_TRANSFORM_RESPONSE_SCHEMA: dict[str, Any] = {
     'type': 'object',
     'properties': {
@@ -22,6 +25,43 @@ DECK_TRANSFORM_RESPONSE_SCHEMA: dict[str, Any] = {
                         'items': {'type': 'string'},
                     },
                     'speakerNotes': {'type': 'string'},
+                    'chartUpdates': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'targetShapeId': {'type': 'integer'},
+                                'sourceSheet': {'type': 'string'},
+                                'chartType': {'type': 'string'},
+                                'categoryColumn': {'type': 'string'},
+                                'valueColumns': {
+                                    'type': 'array',
+                                    'items': {'type': 'string'},
+                                },
+                                'intent': {'type': 'string'},
+                            },
+                            'required': ['sourceSheet', 'chartType', 'categoryColumn', 'valueColumns', 'intent'],
+                            'additionalProperties': False,
+                        },
+                    },
+                    'tableUpdates': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'targetShapeId': {'type': 'integer'},
+                                'sourceSheet': {'type': 'string'},
+                                'columns': {
+                                    'type': 'array',
+                                    'items': {'type': 'string'},
+                                },
+                                'rowLimit': {'type': 'integer'},
+                                'intent': {'type': 'string'},
+                            },
+                            'required': ['sourceSheet', 'columns', 'rowLimit', 'intent'],
+                            'additionalProperties': False,
+                        },
+                    },
                     'replacements': {
                         'type': 'array',
                         'items': {
@@ -88,11 +128,73 @@ class DeckTransformAgent:
                 'slideHeight': template_rules.get('slideHeight'),
                 'fonts': template_rules.get('fonts', []),
                 'colorTheme': template_rules.get('colorTheme', []),
-                'slides': template_rules.get('templateSlides') or [],
+                'slides': self._slides_with_fit_hints(template_rules.get('templateSlides') or []),
             },
             'content': parsed_document.get('contentSummary') or {},
             'userOptions': parsed_document.get('userOptions') or {},
         }
+
+    def _slides_with_fit_hints(self, template_slides: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        enriched_slides = []
+        for slide in template_slides:
+            text_shapes = []
+            for shape in slide.get('textShapes') or []:
+                text_shapes.append(
+                    {
+                        **shape,
+                        'fit': self._shape_fit_hint(shape),
+                    }
+                )
+            enriched_slides.append({**slide, 'textShapes': text_shapes})
+        return enriched_slides
+
+    def _shape_fit_hint(self, shape: dict[str, Any]) -> dict[str, Any]:
+        position = shape.get('position') or {}
+        width_in = self._emu_to_inches(position.get('width'))
+        height_in = self._emu_to_inches(position.get('height'))
+        area = width_in * height_in
+        text = str(shape.get('text') or '')
+
+        if area < 0.35:
+            role = 'decorative-or-micro-label'
+            max_chars = 20
+        elif area < 0.75:
+            role = 'label-or-kpi'
+            max_chars = 40
+        elif area < 1.5:
+            role = 'short-callout'
+            max_chars = 80
+        elif area < 3.0:
+            role = 'compact-body'
+            max_chars = 140
+        else:
+            role = 'body'
+            max_chars = 220
+
+        if len(text) <= 35 and area >= 0.75:
+            role = 'title-or-label'
+            max_chars = min(max_chars, 70)
+
+        return {
+            'role': role,
+            'maxChars': max_chars,
+            'maxLines': self._max_lines_for_role(role),
+            'areaIn2': round(area, 2),
+            'guidance': 'Keep replacement text at or below maxChars. Move detail to speakerNotes instead of overfilling the shape.',
+        }
+
+    def _max_lines_for_role(self, role: str) -> int:
+        if role in {'decorative-or-micro-label', 'label-or-kpi', 'title-or-label'}:
+            return 1
+        if role == 'short-callout':
+            return 2
+        return 3
+
+    def _emu_to_inches(self, value: Any) -> float:
+        try:
+            return max(int(value), 0) / EMU_PER_INCH
+        except Exception:
+            return 0.0
 
     def _build_system_prompt(self) -> str:
         return (
@@ -112,11 +214,18 @@ class DeckTransformAgent:
                 '- Keep every template slide in the same order. Do not add, remove, or reorder slides.',
                 '- For each template slide, rewrite each meaningful text shape listed in template.slides[].textShapes.',
                 '- Use the shapeId values exactly so the builder can replace text in-place.',
+                '- Obey every shape fit hint in template.slides[].textShapes[].fit. Replacement text must stay at or below fit.maxChars and should not exceed fit.maxLines.',
+                '- Put supporting detail in speakerNotes when fit.maxChars is too small for the full source nuance.',
+                '- Use content.sections, content.documentProfile, content.workbookProfile, and per-source documents as the source of truth. Do not assume any hidden Markdown conversion layer.',
                 '- Preserve the template intent. Example: if the template is a Q1 business report and the source is Q2, produce a Q2 business report.',
+                '- If content.documentType is multi, synthesize across all content.documents and use sourceFocus to name the most relevant source file or section.',
                 '- Do not keep stale quarter, year, metric, customer, or status claims from the template unless the source supports them.',
                 '- Fit replacement copy into the original shape. Prefer concise title, label, KPI, and bullet phrasing.',
                 '- Use the language of the template/source. If either is Korean, produce Korean business presentation copy.',
                 '- For Excel content, summarize trends and metrics directly in the text replacements.',
+                '- If Excel tables, formulas, charts, or chart-friendly numeric columns are present, also return chartUpdates or tableUpdates intent for the relevant slide.',
+                '- chartUpdates and tableUpdates describe desired data updates only. Text replacements must still be complete because the current builder may not update native charts yet.',
+                '- Prefer sourceSheet values from content.sections[].title and columns from content.sections[].columns or numericColumns. For multi-file input, include the source file context in intent text when useful.',
                 '- If a text shape is decorative or should be intentionally blank, return an empty string for that shapeId.',
                 '',
                 'Input JSON:',

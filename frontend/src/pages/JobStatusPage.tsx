@@ -19,6 +19,8 @@ const PIPELINE_STAGE_LABELS: Record<string, string> = {
   REVIEWING: 'Reviewing the generated slide draft for missing or oversized content.',
   CHART_RENDERING: 'Rendering chart images from chart-friendly spreadsheet data.',
   PPT_BUILDING: 'Building the PowerPoint file from the uploaded template.',
+  PPT_VALIDATION: 'Validating the generated PowerPoint file.',
+  PPT_REVIEW: 'Reviewing the generated deck for content and layout issues.',
   RESULT_UPLOADING: 'Uploading the completed presentation.',
   RESULT_READY: 'Your presentation is ready for download.',
   DEMO_RESULT_READY: 'Your demo presentation is ready for download.',

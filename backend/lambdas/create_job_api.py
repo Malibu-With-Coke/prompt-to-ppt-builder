@@ -37,6 +37,19 @@ def _state_machine_arn() -> str:
     return state_machine_arn
 
 
+def _normalize_content_s3_keys(body: dict) -> list[str]:
+    raw_keys = body.get("contentS3Keys")
+    if raw_keys is None:
+        raw_key = body.get("contentS3Key")
+        return [raw_key] if raw_key else []
+    if not isinstance(raw_keys, list):
+        raise ValueError("contentS3Keys must be an array of S3 keys.")
+    normalized_keys = [str(key).strip() for key in raw_keys if str(key).strip()]
+    if len(normalized_keys) != len(set(normalized_keys)):
+        raise ValueError("contentS3Keys must not contain duplicate S3 keys.")
+    return normalized_keys
+
+
 def handler(event, context):
     if is_options_request(event):
         return build_response(200)
@@ -52,7 +65,11 @@ def handler(event, context):
 
     job_id = body.get("jobId")
     template_s3_key = body.get("templateS3Key")
-    content_s3_key = body.get("contentS3Key")
+    try:
+        content_s3_keys = _normalize_content_s3_keys(body)
+    except ValueError as error:
+        return build_error(400, str(error))
+    content_s3_key = content_s3_keys[0] if content_s3_keys else None
     options = _normalize_options(body.get("options") or {})
     demo_preset = body.get("demoPreset")
 
@@ -64,7 +81,8 @@ def handler(event, context):
         try:
             demo_assets = prepare_demo_job_assets(job_id=job_id, preset=demo_preset)
             template_s3_key = demo_assets["templateS3Key"]
-            content_s3_key = demo_assets["contentS3Key"]
+            content_s3_keys = demo_assets.get("contentS3Keys") or [demo_assets["contentS3Key"]]
+            content_s3_key = content_s3_keys[0]
         except ValueError as error:
             return build_error(400, str(error))
         except Exception as error:
@@ -75,7 +93,7 @@ def handler(event, context):
         for field_name, value in {
             "jobId": job_id,
             "templateS3Key": template_s3_key,
-            "contentS3Key": content_s3_key,
+            "contentS3Keys": content_s3_keys,
         }.items()
         if not value
     ]
@@ -88,6 +106,7 @@ def handler(event, context):
             session_token=session_token,
             template_s3_key=template_s3_key,
             content_s3_key=content_s3_key,
+            content_s3_keys=content_s3_keys,
             options=options,
         )
         if demo_assets:
@@ -109,6 +128,7 @@ def handler(event, context):
                         "jobId": job_id,
                         "templateS3Key": template_s3_key,
                         "contentS3Key": content_s3_key,
+                        "contentS3Keys": content_s3_keys,
                         "options": options,
                         "sessionToken": session_token,
                     }

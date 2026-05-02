@@ -7,6 +7,7 @@ export interface UploadUrlRequest {
   fileType: 'template' | 'content';
   fileName: string;
   contentType: string;
+  fileIndex?: number;
 }
 
 export interface UploadUrlResponse {
@@ -18,6 +19,7 @@ export interface CreateJobRequest {
   jobId: string;
   templateS3Key?: string;
   contentS3Key?: string;
+  contentS3Keys?: string[];
   demoPreset?: 'excel';
   options: {
     tone: string;

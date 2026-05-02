@@ -27,6 +27,28 @@ def _build_s3_key(job_id: str, file_type: str, file_name: str) -> str:
     return f"uploads/{job_id}/{canonical_name}"
 
 
+def _build_content_s3_key(job_id: str, file_name: str, file_index: int | None) -> str:
+    extension = Path(file_name).suffix.lower()
+    if extension not in ALLOWED_EXTENSIONS["content"]:
+        allowed = ", ".join(sorted(ALLOWED_EXTENSIONS["content"]))
+        raise ValueError(f"Unsupported content extension. Allowed: {allowed}")
+
+    if file_index is None:
+        return f"uploads/{job_id}/content{extension}"
+    if file_index < 0 or file_index > 99:
+        raise ValueError("fileIndex must be between 0 and 99.")
+    return f"uploads/{job_id}/content-{file_index + 1:02d}{extension}"
+
+
+def _normalize_file_index(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError("fileIndex must be an integer.")
+
+
 def handler(event, context):
     if is_options_request(event):
         return build_response(200)
@@ -40,6 +62,7 @@ def handler(event, context):
     file_type = body.get("fileType")
     file_name = body.get("fileName")
     content_type = body.get("contentType")
+    file_index = body.get("fileIndex")
 
     if not job_id or not file_type or not file_name:
         return build_error(400, "jobId, fileType, and fileName are required.")
@@ -48,7 +71,8 @@ def handler(event, context):
         return build_error(400, "fileType must be either 'template' or 'content'.")
 
     try:
-        s3_key = _build_s3_key(job_id, file_type, file_name)
+        normalized_file_index = _normalize_file_index(file_index)
+        s3_key = _build_content_s3_key(job_id, file_name, normalized_file_index) if file_type == "content" else _build_s3_key(job_id, file_type, file_name)
         upload_url = generate_presigned_url(
             bucket=resolve_bucket_name(),
             key=s3_key,

@@ -36,16 +36,19 @@ def init_job(
     job_id: str,
     session_token: str,
     template_s3_key: str,
-    content_s3_key: str,
+    content_s3_key: str | None,
     options: dict[str, Any],
+    content_s3_keys: list[str] | None = None,
 ) -> dict[str, Any]:
     now = utcnow_iso()
+    normalized_content_keys = list(content_s3_keys or ([content_s3_key] if content_s3_key else []))
     item = {
         "jobId": job_id,
         "sessionToken": session_token,
         "status": "PENDING",
         "templateS3Key": template_s3_key,
-        "contentS3Key": content_s3_key,
+        "contentS3Key": normalized_content_keys[0] if normalized_content_keys else None,
+        "contentS3Keys": normalized_content_keys,
         "options": options,
         "createdAt": now,
         "updatedAt": now,

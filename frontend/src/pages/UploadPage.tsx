@@ -7,6 +7,7 @@ import { useJobStore } from '../stores/jobStore';
 import type { AIEngine, Audience, Length, Tone } from '../stores/jobStore';
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_CONTENT_FILES = 10;
 const lengthToSlideCount: Record<Length, number> = {
   '5 slides': 5,
   '10 slides': 10,
@@ -64,7 +65,7 @@ export default function UploadPage() {
     setAIEngine,
   } = useJobStore();
   const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [contentFile, setContentFile] = useState<File | null>(null);
+  const [contentFiles, setContentFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,14 +79,14 @@ export default function UploadPage() {
   });
 
   const handleFileChange = (fileType: 'template' | 'content') => (event: ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
+    const selectedFiles = Array.from(event.target.files || []);
     event.target.value = '';
 
-    if (!selectedFile) {
+    if (!selectedFiles.length) {
       return;
     }
 
-    const validationError = validateSelectedFile(selectedFile, fileType);
+    const validationError = selectedFiles.map((file) => validateSelectedFile(file, fileType)).find(Boolean);
     if (validationError) {
       setErrorMessage(validationError);
       return;
@@ -93,16 +94,22 @@ export default function UploadPage() {
 
     setErrorMessage(null);
     if (fileType === 'template') {
-      setTemplateFile(selectedFile);
+      setTemplateFile(selectedFiles[0]);
       return;
     }
 
-    setContentFile(selectedFile);
+    setContentFiles((currentFiles) => {
+      const nextFiles = [...currentFiles, ...selectedFiles];
+      const dedupedFiles = nextFiles.filter(
+        (file, index, files) => files.findIndex((candidate) => candidate.name === file.name && candidate.size === file.size) === index,
+      );
+      return dedupedFiles.slice(0, MAX_CONTENT_FILES);
+    });
   };
 
   const handleGenerateClick = async () => {
-    if (!templateFile || !contentFile) {
-      setErrorMessage('Please select both a template PPTX and a content document before generating.');
+    if (!templateFile || !contentFiles.length) {
+      setErrorMessage('Please select a template PPTX and at least one Word/Excel content file before generating.');
       return;
     }
 
@@ -113,26 +120,27 @@ export default function UploadPage() {
     const jobId = crypto.randomUUID();
 
     try {
-      const [templateUpload, contentUpload] = await Promise.all([
+      const [templateUpload, ...contentUploads] = await Promise.all([
         requestUploadUrl({
           jobId,
           fileType: 'template',
           fileName: templateFile.name,
           contentType: templateFile.type || 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         }),
-        requestUploadUrl({
+        ...contentFiles.map((contentFile, fileIndex) => requestUploadUrl({
           jobId,
           fileType: 'content',
           fileName: contentFile.name,
           contentType: contentFile.type || 'application/octet-stream',
-        }),
+          fileIndex,
+        })),
       ]);
 
       setUploadProgress(25);
 
       await Promise.all([
         uploadFileToS3(templateUpload.uploadUrl, templateFile),
-        uploadFileToS3(contentUpload.uploadUrl, contentFile),
+        ...contentUploads.map((contentUpload, index) => uploadFileToS3(contentUpload.uploadUrl, contentFiles[index])),
       ]);
 
       setUploadProgress(75);
@@ -140,7 +148,7 @@ export default function UploadPage() {
       const job = await createJob({
         jobId,
         templateS3Key: templateUpload.s3Key,
-        contentS3Key: contentUpload.s3Key,
+        contentS3Keys: contentUploads.map((contentUpload) => contentUpload.s3Key),
         options: buildJobOptions(),
       });
 
@@ -180,7 +188,7 @@ export default function UploadPage() {
     }
   };
 
-  const canSubmit = Boolean(templateFile && contentFile) && !isSubmitting;
+  const canSubmit = Boolean(templateFile && contentFiles.length) && !isSubmitting;
 
   return (
     <div className="w-full flex justify-center">
@@ -237,19 +245,26 @@ export default function UploadPage() {
               <span className="material-symbols-outlined text-primary-container text-3xl">description</span>
             </div>
             <h3 className="text-lg font-bold font-headline text-primary mb-2">Content Word/Excel</h3>
-            <p className="text-sm text-center text-on-surface-variant max-w-[240px]">
-              {contentFile ? contentFile.name : "Upload the raw data or document containing your deck's narrative"}
+            <p className="text-sm text-center text-on-surface-variant max-w-[260px]">
+              {contentFiles.length ? `${contentFiles.length} content file${contentFiles.length > 1 ? 's' : ''} selected` : "Upload one or more documents containing your deck's narrative"}
             </p>
-            {contentFile && (
-              <button
-                type="button"
-                onClick={() => setContentFile(null)}
-                className="mt-4 text-xs font-semibold text-primary-container hover:underline z-10"
-              >
-                Remove file
-              </button>
+            {contentFiles.length > 0 && (
+              <div className="z-10 mt-4 flex max-w-[280px] flex-col gap-2 text-xs text-on-surface-variant">
+                {contentFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-surface-container-highest px-3 py-2">
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setContentFiles((files) => files.filter((candidate) => candidate !== file))}
+                      className="font-semibold text-primary-container hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
-            <input className="absolute inset-0 opacity-0 cursor-pointer" type="file" accept=".docx,.xlsx" onChange={handleFileChange('content')} />
+            <input className="absolute inset-0 opacity-0 cursor-pointer" type="file" accept=".docx,.xlsx" multiple onChange={handleFileChange('content')} />
           </div>
         </section>
 

@@ -17,7 +17,7 @@
 | Q3. 템플릿 파싱 범위 | 플레이스홀더 위치/크기까지 | ✅ 확정 |
 | Q4. 차트 데이터 소스 | Excel 입력 있을 때만 차트 허용 | ✅ 확정 |
 | Q5. 옵션 enum | 한국어 라벨 중심 값 | ✅ 확정 |
-| Q6. 입력 파일 조합 | `pptx + (docx 또는 xlsx 중 1개)` | ✅ 확정 |
+| Q6. 입력 파일 조합 | `pptx + docx/xlsx 복수 파일` | ✅ 확정 |
 | Q7. 중간 산출물 저장 | S3에 저장 (디버깅용) | ✅ 확정 |
 | Q8. 실패 메시지 노출 | 단계 정보 포함 표시 | ✅ 확정 |
 | Q9. 인증 범위 | 세션 기반 소유권 (로그인 없음, localStorage) | ✅ 확정 |
@@ -167,15 +167,33 @@ length: 5 | 10 | 15  (숫자는 언어 무관)
 
 ### Q6. 입력 파일 조합 ✅
 
-**결정**: A) `pptx + (docx 또는 xlsx 중 1개)`  
-**반영 범위**: `design-doc.md` 3절 Goals, 4.3절 API 명세, `ui-spec.md` 유효성 검사
+**결정**: `pptx + docx/xlsx 복수 파일`  
+**현재 구현**:
+- 템플릿은 `.pptx` 1개
+- 콘텐츠는 `.docx`, `.xlsx`를 섞어서 최대 10개
+- 프론트는 `contentFiles: File[]`를 업로드한다.
+- 업로드 URL 요청에는 `fileIndex`를 포함한다.
+- Job 생성 요청에는 `contentS3Keys` 배열을 보낸다.
+- 백엔드는 기존 호환성을 위해 `contentS3Key`도 계속 저장한다.
+
+**반영 범위**: `design-doc.md`, `arch-design.md`, `ui-spec.md`, frontend UploadPage, backend upload/create job handlers
 
 ---
 
 ### Q7. 중간 산출물 저장 ✅
 
-**결정**: A) S3에 저장 (디버깅용) — `temp/{jobId}/outline.json`, `slides_draft.json`  
-**반영 범위**: `design-doc.md` S3 버킷 구조 유지
+**결정**: S3에 저장 (디버깅용)
+
+현재 중간 산출물:
+
+```text
+temp/{jobId}/parsed_document.json
+temp/{jobId}/deck_transform_plan.json
+temp/{jobId}/ppt_validation.json
+temp/{jobId}/review_report.json
+```
+
+**반영 범위**: `design-doc.md` S3 구조, worker orchestrator
 
 ---
 

@@ -207,6 +207,77 @@ class WalkingSkeletonTests(unittest.TestCase):
         )
         create_job_api.stepfunctions.start_execution.assert_not_called()
 
+    def test_backend_accepts_multiple_content_sources(self):
+        upload_url_api = import_fresh('lambdas.upload_url_api')
+        create_job_api = import_fresh('lambdas.create_job_api')
+
+        upload_event = {
+            'httpMethod': 'POST',
+            'body': json.dumps(
+                {
+                    'jobId': 'job-multi-123',
+                    'fileType': 'content',
+                    'fileName': 'metrics.xlsx',
+                    'fileIndex': 1,
+                    'contentType': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                }
+            ),
+        }
+
+        with mock.patch.object(upload_url_api, 'resolve_bucket_name', return_value='test-bucket'), mock.patch.object(
+            upload_url_api,
+            'generate_presigned_url',
+            return_value='https://signed-upload.example/content-02',
+        ):
+            upload_response = upload_url_api.handler(upload_event, None)
+
+        self.assertEqual(upload_response['statusCode'], 200)
+        upload_payload = json.loads(upload_response['body'])
+        self.assertEqual(upload_payload['s3Key'], 'uploads/job-multi-123/content-02.xlsx')
+
+        create_event = {
+            'httpMethod': 'POST',
+            'headers': {'X-Session-Token': 'session-multi'},
+            'body': json.dumps(
+                {
+                    'jobId': 'job-multi-123',
+                    'templateS3Key': 'uploads/job-multi-123/template.pptx',
+                    'contentS3Keys': [
+                        'uploads/job-multi-123/content-01.docx',
+                        upload_payload['s3Key'],
+                    ],
+                    'options': {
+                        'tone': 'Executive',
+                        'target': 'Management',
+                        'length': 10,
+                        'aiEngine': 'bedrock',
+                    },
+                }
+            ),
+        }
+        created_job = {
+            'jobId': 'job-multi-123',
+            'status': 'PENDING',
+            'createdAt': '2026-04-01T00:00:00Z',
+        }
+
+        with mock.patch.object(create_job_api, 'init_job', return_value=created_job) as init_job_mock:
+            create_job_api.stepfunctions = mock.Mock()
+            create_response = create_job_api.handler(create_event, None)
+
+        self.assertEqual(create_response['statusCode'], 202)
+        init_kwargs = init_job_mock.call_args.kwargs
+        self.assertEqual(
+            init_kwargs['content_s3_keys'],
+            [
+                'uploads/job-multi-123/content-01.docx',
+                'uploads/job-multi-123/content-02.xlsx',
+            ],
+        )
+        self.assertEqual(init_kwargs['content_s3_key'], 'uploads/job-multi-123/content-01.docx')
+        execution_payload = json.loads(create_job_api.stepfunctions.start_execution.call_args.kwargs['input'])
+        self.assertEqual(execution_payload['contentS3Keys'], init_kwargs['content_s3_keys'])
+
     def test_worker_bootstrap_walking_skeleton(self):
         document_parser_module = import_fresh('pipeline.agents.document_parser')
         orchestrator_module = import_fresh('pipeline.orchestrator')
@@ -254,6 +325,8 @@ class WalkingSkeletonTests(unittest.TestCase):
             },
         }
         upload_result = {'resultS3Key': 'results/job-456/output.pptx', 'pipelineStage': 'RESULT_READY'}
+        ppt_validation = {'status': 'passed', 'audit': {'warnings': [], 'warningCount': 0}, 'render': {'status': 'skipped'}}
+        review_report = {'status': 'warning', 'summary': {'findingCount': 1}}
 
         with mock.patch.object(orchestrator_module, 'get_job', return_value=job_record), mock.patch.object(
             orchestrator_module, 'update_job_status'
@@ -272,6 +345,14 @@ class WalkingSkeletonTests(unittest.TestCase):
             'build',
             return_value='/tmp/job-456-output.pptx',
         ) as ppt_builder_mock, mock.patch.object(
+            orchestrator_module.PPTValidationAgent,
+            'validate',
+            return_value=ppt_validation,
+        ) as ppt_validation_mock, mock.patch.object(
+            orchestrator_module.ReviewAgent,
+            'review_output',
+            return_value=review_report,
+        ) as review_mock, mock.patch.object(
             orchestrator_module.ResultUploader,
             'upload',
             return_value=upload_result,
@@ -284,19 +365,25 @@ class WalkingSkeletonTests(unittest.TestCase):
         parse_mock.assert_called_once_with(job_record)
         transform_mock.assert_called_once_with(parsed_document)
         ppt_builder_mock.assert_called_once_with(job_record, deck_transform)
+        ppt_validation_mock.assert_called_once_with('job-456', '/tmp/job-456-output.pptx', deck_transform)
+        review_mock.assert_called_once_with(parsed_document, deck_transform, ppt_validation)
         uploader_mock.assert_called_once_with('job-456', '/tmp/job-456-output.pptx')
-        self.assertEqual(put_json_mock.call_count, 2)
+        self.assertEqual(put_json_mock.call_count, 4)
         put_paths = [call.args[0] for call in put_json_mock.call_args_list]
         self.assertEqual(
             put_paths,
             [
                 'temp/job-456/parsed_document.json',
                 'temp/job-456/deck_transform_plan.json',
+                'temp/job-456/ppt_validation.json',
+                'temp/job-456/review_report.json',
             ],
         )
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'DOCUMENT_PARSING'})
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'LLM_TEMPLATE_TRANSFORMATION'})
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'PPT_BUILDING'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'PPT_VALIDATION'})
+        update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'PPT_REVIEW'})
         update_status_mock.assert_any_call('job-456', 'RUNNING', extra_updates={'pipelineStage': 'RESULT_UPLOADING'})
 
     def test_template_transform_builder_replaces_existing_slide_text(self):
@@ -485,6 +572,93 @@ class WalkingSkeletonTests(unittest.TestCase):
         self.assertTrue(fake_client.invoked)
         self.assertEqual(deck_transform['llmStatus'], 'SUCCEEDED')
         self.assertEqual(deck_transform['transformPlan']['slides'][0]['replacements'][0]['text'], 'Q2 Business Review')
+
+    def test_deck_transform_adds_fit_hints_and_review_retries_dense_text(self):
+        deck_transform_module = import_fresh('pipeline.agents.deck_transform_agent')
+        review_module = import_fresh('pipeline.agents.review_agent')
+
+        class FitAwareLLMClient:
+            provider_name = 'fake-llm'
+
+            def __init__(self):
+                self.prompt_input = None
+
+            def build_json_request(self, *, system_prompt, user_prompt, schema):
+                return {'model': 'fake', 'schema': schema}
+
+            def invoke_json(self, *, system_prompt, user_prompt, schema):
+                self.prompt_input = json.loads(user_prompt.split('Input JSON:\n', 1)[1])
+                shape_id = self.prompt_input['template']['slides'][0]['textShapes'][0]['shapeId']
+                return {
+                    'deckTitle': 'Q2 Business Review',
+                    'strategy': 'Keep copy within shape fit hints.',
+                    'slides': [
+                        {
+                            'slideIndex': 1,
+                            'sourceFocus': ['Executive Summary'],
+                            'speakerNotes': 'Detailed source nuance belongs in notes.',
+                            'replacements': [{'shapeId': shape_id, 'text': 'Q2 Update'}],
+                        }
+                    ],
+                }
+
+        parsed_document = {
+            'jobId': 'job-fit',
+            'templateRules': {
+                'slideCount': 1,
+                'templateSlides': [
+                    {
+                        'index': 1,
+                        'textShapes': [
+                            {
+                                'shapeId': 22,
+                                'text': 'Small KPI',
+                                'position': {
+                                    'left': 0,
+                                    'top': 0,
+                                    'width': 300000,
+                                    'height': 300000,
+                                },
+                            }
+                        ],
+                    }
+                ],
+            },
+            'contentSummary': {
+                'title': 'Q2 Business Review',
+                'documentType': 'docx',
+                'sections': [{'title': 'Executive Summary', 'summary': 'Revenue grew 14%.'}],
+            },
+            'userOptions': {},
+        }
+
+        fake_client = FitAwareLLMClient()
+        deck_transform = deck_transform_module.DeckTransformAgent(fake_client).build_transform_plan(parsed_document)
+        fit = fake_client.prompt_input['template']['slides'][0]['textShapes'][0]['fit']
+
+        self.assertEqual(deck_transform['llmStatus'], 'SUCCEEDED')
+        self.assertEqual(fit['role'], 'decorative-or-micro-label')
+        self.assertEqual(fit['maxChars'], 20)
+
+        ppt_validation = {
+            'render': {'status': 'passed'},
+            'audit': {
+                'warnings': [
+                    {
+                        'type': 'high_text_density',
+                        'slideIndex': 1,
+                        'shapeId': 22,
+                        'message': 'Text may clip, wrap badly, or become too small after replacement.',
+                    }
+                ]
+            },
+        }
+        review = review_module.ReviewAgent().review_output(parsed_document, deck_transform, ppt_validation)
+
+        self.assertEqual(review['status'], 'needs_retry')
+        self.assertEqual(review['summary']['blockingFindingCount'], 1)
+        self.assertEqual(review['findings'][0]['type'], 'high_text_density')
+        self.assertEqual(review['findings'][0]['severity'], 'error')
 
 
 if __name__ == '__main__':
