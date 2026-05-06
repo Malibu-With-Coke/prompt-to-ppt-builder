@@ -4,6 +4,11 @@ Prompt-to-PPT is a monorepo for generating presentation decks from uploaded DOCX
 
 The current worker keeps the uploaded template deck as the layout source of truth, parses multiple content files, asks an LLM for shape-level replacement text plus chart/table update intent, builds a new PPTX in-place, and runs post-build QA.
 
+## Site
+
+- Demo site: https://codex-demo-one-click-ppt.d2qzosqvodzspp.amplifyapp.com/upload
+- API base URL: https://px5m3uz2sa.execute-api.ap-northeast-2.amazonaws.com/prod/
+
 ## Structure
 
 - `frontend/`: React + Vite + Tailwind UI
