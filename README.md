@@ -32,6 +32,12 @@ Supported source files:
 
 MarkItDown is intentionally not used in the runtime path. Exact structured parsers are the source of truth.
 
+Recent parser comparison against MarkItDown:
+
+- PPTX: MarkItDown is useful for reading slide text, but it does not provide `shapeId`, position, font, color, or layout metadata required for in-place template replacement.
+- DOCX: MarkItDown produces readable Markdown, but the project parser provides stable heading/table/report structure.
+- XLSX: MarkItDown produces clean Markdown tables, but the project parser preserves workbook profile, numeric columns, formulas, and chart/table metadata needed for update intent.
+
 ## Local Development
 
 ```powershell

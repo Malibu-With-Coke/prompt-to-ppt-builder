@@ -311,6 +311,14 @@ Document Parser는 MarkItDown을 사용하지 않는다. 변환기 기반 Markdo
 - XLSX: workbook profile, sheet profile, sample rows, numeric columns, formula cells, structured Excel tables, embedded chart metadata
 - Multi-source: `documentType: "multi"`, `documents`, flattened `sections`, `workbookProfiles`, `documentProfiles`
 
+MarkItDown 비교 결과는 다음과 같다.
+
+- PPTX: 슬라이드 텍스트를 Markdown으로 읽기 좋게 펼치지만, 템플릿 치환에 필요한 `shapeId`, 위치, 크기, 폰트, 색상, layout 정보가 없다.
+- DOCX: heading/table Markdown 품질은 좋지만, report signals, heading outline, table profile 같은 결정적 구조 필드는 프로젝트 파서가 더 적합하다.
+- XLSX: 시트별 Markdown table은 깔끔하지만, chart metadata, formula cells, numeric columns, workbook profile을 source of truth로 쓰기 어렵다.
+
+따라서 MarkItDown은 런타임 필수 단계가 아니라, timeout과 cache가 있는 선택적 분석/디버깅 도구로만 고려한다.
+
 ### 9.3 LLM 중심 생성 방식
 
 일반 업로드 흐름은 더 이상 generic 새 슬라이드를 조립하는 방식이 아니다.

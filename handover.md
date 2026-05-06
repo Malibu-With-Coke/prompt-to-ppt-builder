@@ -68,6 +68,7 @@ PPT QA:
 - Native chart/table updates are not yet applied to the PPTX; the LLM currently emits chart/table update intent for future builder work.
 - The MVP keeps the template slide count, order, and layout unchanged.
 - The demo fast-path remains for feedback and quick previews.
+- MarkItDown was compared against the project parser on sample PPTX/DOCX/XLSX files. It is good for human-readable Markdown text, especially DOCX and plain XLSX tables, but it drops metadata needed for this product: PPT shape IDs/positions/styles and Excel chart/formula/workbook structure.
 
 ## 4. Verification
 
@@ -84,6 +85,7 @@ Recent local verification covered:
 - template text replacement preserving style
 - shape fit hints in DeckTransformAgent
 - `high_text_density` becoming `needs_retry`
+- parser comparison against MarkItDown with the project parser remaining the runtime source of truth
 
 For frontend:
 
